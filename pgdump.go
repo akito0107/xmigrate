@@ -205,6 +205,74 @@ func parseTypeOption(tp sqlast.SQLType, info *pgInformationSchemaColumns) sqlast
 	}
 }
 
+type pgInformationSchemaConstraints struct {
+	ColumnName           string         `db:"column_name"`
+	ConstraintName       string         `db:"constraint_name"`
+	ConstraintType       string         `db:"constraint_type"`
+	TableName            string         `db:"table_name"`
+	UniqueConstraintName sql.NullString `db:"unique_constraint_name"`
+}
+
+type columnInfo struct {
+	TableName  string
+	ColumnName string
+}
+
+func (p *PGDump) getTableConstrains(ctx context.Context, tableName string, keymap map[string]*columnInfo) (map[string][]*sqlast.ColumnConstraint, error) {
+
+	var constrains []*pgInformationSchemaConstraints
+
+	err := p.db.SelectContext(ctx, &constrains,
+		`select 
+					constraint_column_usage.column_name, 
+					table_constraints.constraint_name,
+					table_constraints.constraint_type,
+					table_constraints.table_name,
+					referential_constraints.unique_constraint_name
+ 				from
+					information_schema.table_constraints
+				left join information_schema.referential_constraints on referential_constraints.constraint_name = table_constraints.constraint_name
+ 				join information_schema.constraint_column_usage on constraint_column_usage.constraint_name = table_constraints.constraint_name
+ 				where table_constraints.table_schema = 'public' where table_constrains.table_name = $1`, tableName)
+
+	if err != nil {
+		return nil, errors.Errorf("selectContext failed: %w", err)
+	}
+
+	constraintmap := make(map[string][]*sqlast.ColumnConstraint)
+
+	for _, c := range constrains {
+		keymap[c.ConstraintName] = &columnInfo{
+			TableName:  c.TableName,
+			ColumnName: c.ColumnName,
+		}
+
+		switch c.ConstraintType {
+		case "FOREIGN KEY":
+			constraintmap[c.ColumnName] = append(constraintmap[c.ColumnName], &sqlast.ColumnConstraint{
+				Name: sqlast.NewSQLIdentifier(sqlast.NewSQLIdent(c.ConstraintName)),
+				Spec: &sqlast.ReferencesColumnSpec{},
+			})
+		case "UNIQUE":
+			constraintmap[c.ColumnName] = append(constraintmap[c.ColumnName], &sqlast.ColumnConstraint{
+				Name: sqlast.NewSQLIdentifier(sqlast.NewSQLIdent(c.ConstraintName)),
+				Spec: &sqlast.UniqueColumnSpec{},
+			})
+		case "PRIMARY KEY":
+			constraintmap[c.ColumnName] = append(constraintmap[c.ColumnName], &sqlast.ColumnConstraint{
+				Name: sqlast.NewSQLIdentifier(sqlast.NewSQLIdent(c.ConstraintName)),
+				Spec: &sqlast.UniqueColumnSpec{
+					IsPrimaryKey: true,
+				},
+			})
+		default:
+			return nil, errors.Errorf("currently unsupported constraint %s", c.ConstraintType)
+		}
+	}
+
+	return constraintmap, nil
+}
+
 func getParser(src string) *xsqlparser.Parser {
 	parser, err := xsqlparser.NewParser(bytes.NewBufferString(src), &dialect.PostgresqlDialect{})
 	if err != nil {
