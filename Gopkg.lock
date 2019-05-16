@@ -3,7 +3,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:ec32768b803fac9f53a1479191c5ff58a47da9ea0fdfb99e57c089037e040049"
+  digest = "1:0e141a1c8e4b70802f856d10148013bc679c4e6790eeac42e63bb7ba938c7ab8"
   name = "github.com/akito0107/xsqlparser"
   packages = [
     ".",
@@ -11,7 +11,7 @@
     "sqlast",
   ]
   pruneopts = "UT"
-  revision = "14c495ec0675b09ef55d7b974960cf964d9bb9b6"
+  revision = "8276d0863d36772699e635ce9d546e2e1ce7228c"
 
 [[projects]]
   digest = "1:bf40199583e5143d1472fc34d10d6f4b69d97572142acf343b3e43136da40823"

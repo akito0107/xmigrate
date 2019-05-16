@@ -88,8 +88,13 @@ type DropTableSpec struct {
 	TableName string
 }
 
-func (*DropTableSpec) ToSQLString() string {
-	panic("not implemented")
+func (d *DropTableSpec) ToSQLString() string {
+	sql := &sqlast.SQLDropTable{
+		TableNames: []*sqlast.SQLObjectName{sqlast.NewSQLObjectName(d.TableName)},
+		IfExists:   true,
+	}
+
+	return sql.ToSQLString()
 }
 
 func createDropTableSpec(currentTable *TableDef) *DropTableSpec {
