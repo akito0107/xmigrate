@@ -1,0 +1,92 @@
+package xmigrate
+
+import (
+	"strings"
+
+	"github.com/akito0107/xsqlparser/sqlast"
+	errors "golang.org/x/xerrors"
+)
+
+func Inverse(diff *SchemaDiff, currentTable []*TableDef) (*SchemaDiff, error) {
+	switch spec := diff.Spec.(type) {
+	case *AddTableSpec:
+		return &SchemaDiff{
+			Type: DropTable,
+			Spec: &DropTableSpec{
+				TableName: spec.SQL.Name.ToSQLString(),
+			},
+		}, nil
+	case *AddColumnSpec:
+		return &SchemaDiff{
+			Type: DropColumn,
+			Spec: &DropColumnSpec{
+				TableName:  spec.TableName,
+				ColumnName: spec.ColumnDef.Name.ToSQLString(),
+			},
+		}, nil
+	case *DropColumnSpec:
+		t := getTable(spec.TableName, currentTable)
+		col := t.Columns[spec.ColumnName]
+
+		return &SchemaDiff{
+			Type: AddColumn,
+			Spec: &AddColumnSpec{
+				TableName: spec.TableName,
+				ColumnDef: refineColumn(col),
+			},
+		}, nil
+
+	case *DropTableSpec:
+		t := getTable(spec.TableName, currentTable)
+		var columndef []sqlast.TableElement
+
+		for _, c := range t.Columns {
+			columndef = append(columndef, c)
+		}
+
+		return &SchemaDiff{
+			Type: AddTable,
+			Spec: &AddTableSpec{
+				SQL: &sqlast.SQLCreateTable{
+					Name:     sqlast.NewSQLObjectName(spec.TableName),
+					Elements: columndef,
+				},
+			},
+		}, nil
+
+	default:
+		return nil, errors.Errorf("unknown spec %+v", diff)
+	}
+}
+
+func getTable(tableName string, ts []*TableDef) *TableDef {
+	for _, t := range ts {
+		if t.Name == tableName {
+			return t
+		}
+	}
+	return nil
+}
+
+func refineColumn(org *sqlast.SQLColumnDef) *sqlast.SQLColumnDef {
+	// convert into serial
+	_, ok := org.DataType.(*sqlast.Int)
+	if !ok {
+		return org
+	}
+
+	fn, ok := org.Default.(*sqlast.SQLFunction)
+	if !ok {
+		return org
+	}
+
+	if strings.HasPrefix(fn.Name.ToSQLString(), "nextval") {
+		return &sqlast.SQLColumnDef{
+			Name:        org.Name,
+			DataType:    &sqlast.Custom{Ty: sqlast.NewSQLObjectName("SERIAL")},
+			Constraints: org.Constraints,
+		}
+	}
+
+	return org
+}

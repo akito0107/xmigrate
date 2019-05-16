@@ -31,10 +31,11 @@ func main() {
 	app.Commands = []cli.Command{
 		{
 			Name:    "diff",
-			Aliases: []string{"g"},
+			Aliases: []string{"d"},
 			Usage:   "check diff between current table and schema.sql",
 			Flags: []cli.Flag{
 				cli.StringFlag{Name: "schema,f", Value: "schema.sql", Usage: "target schema file path"},
+				cli.BoolFlag{Name: "preview"},
 			},
 			Action: diffAction,
 		},
@@ -108,9 +109,20 @@ func diffAction(c *cli.Context) error {
 		return err
 	}
 
-	fmt.Println("diff between current and target state is...")
-	for _, d := range diffs {
-		fmt.Println(d.Spec.ToSQLString())
+	preview := c.Bool("preview")
+
+	if preview {
+		fmt.Println("diff between current and target state is...")
+		for _, d := range diffs {
+			fmt.Println(d.Spec.ToSQLString())
+			inv, err := xmigrate.Inverse(d, res)
+			if err != nil {
+				return err
+			}
+			fmt.Println("inverse")
+			fmt.Println(inv.Spec.ToSQLString())
+		}
+		return nil
 	}
 
 	return nil
