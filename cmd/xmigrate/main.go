@@ -24,7 +24,7 @@ func main() {
 		cli.StringFlag{Name: "port,p", Value: "5432", Usage: "db host"},
 		cli.StringFlag{Name: "dbname,d", Value: "", Usage: "dbname"},
 		cli.StringFlag{Name: "password,W", Value: "", Usage: "password"},
-		cli.StringFlag{Name: "username,U", Value: "postgress", Usage: "db user name"},
+		cli.StringFlag{Name: "username,U", Value: "postgres", Usage: "db user name"},
 		cli.BoolFlag{Name: "verbose"},
 	}
 

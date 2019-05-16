@@ -10,7 +10,8 @@ create table account (
 
 create table category (
     category_id serial primary key,
-    name varchar(255) not null
+    name varchar(255) not null,
+    code varchar(2) not null
 );
 
 create table item (
