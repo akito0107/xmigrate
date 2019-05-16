@@ -31,7 +31,7 @@ func (p *PGConf) Src() string {
 
 type TableDef struct {
 	Name    string
-	Columns []*sqlast.SQLColumnDef
+	Columns map[string]*sqlast.SQLColumnDef
 }
 
 type PGDump struct {
@@ -51,21 +51,52 @@ func NewPGDump(conf *PGConf) *PGDump {
 func (p *PGDump) Dump(ctx context.Context) ([]*TableDef, error) {
 	tableNames, err := p.getTableNames(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errors.Errorf("getTableNames failed: %w", err)
 	}
 
 	var tables []*TableDef
+	keymap := make(map[string]*columnInfo)
 
 	for _, n := range tableNames {
+		constrains, err := p.getTableConstrains(ctx, n, keymap)
+		if err != nil {
+			return nil, errors.Errorf("getTableConstrains failed: %w", err)
+		}
+
 		columns, err := p.getColumnDefinition(ctx, n)
 		if err != nil {
-			return nil, err
+			return nil, errors.Errorf("getColumnDefinition failed: %w", err)
+		}
+
+		for _, c := range columns {
+			cnts, ok := constrains[c.Name.ToSQLString()]
+			if ok {
+				c.Constraints = append(c.Constraints, cnts...)
+			}
 		}
 
 		tables = append(tables, &TableDef{
 			Name:    n,
 			Columns: columns,
 		})
+	}
+
+	for _, t := range tables {
+		for _, c := range t.Columns {
+			for _, ref := range c.Constraints {
+				spec, ok := ref.Spec.(*sqlast.ReferencesColumnSpec)
+				if !ok {
+					continue
+				}
+				targinfo, ok := keymap[ref.Name.ToSQLString()]
+				if !ok {
+					return nil, errors.Errorf("key %s is not found", ref.Name.ToSQLString())
+				}
+
+				spec.TableName = sqlast.NewSQLObjectName(targinfo.TableName)
+				spec.Columns = []*sqlast.SQLIdent{sqlast.NewSQLIdent(targinfo.ColumnName)}
+			}
+		}
 	}
 
 	return tables, nil
@@ -147,13 +178,13 @@ type pgInformationSchemaColumns struct {
 	IsUpdatable            string         `db:"is_updatable"`
 }
 
-func (p *PGDump) getColumnDefinition(ctx context.Context, schemaName string) ([]*sqlast.SQLColumnDef, error) {
+func (p *PGDump) getColumnDefinition(ctx context.Context, schemaName string) (map[string]*sqlast.SQLColumnDef, error) {
 	var columns []*pgInformationSchemaColumns
 	if err := p.db.SelectContext(ctx, &columns, "select * from information_schema.columns where table_schema = 'public' and table_name = $1", schemaName); err != nil {
 		return nil, errors.Errorf("select columns with tableName %s failed: %w", schemaName, err)
 	}
 
-	var columndefs []*sqlast.SQLColumnDef
+	columndefs := make(map[string]*sqlast.SQLColumnDef)
 	for _, c := range columns {
 		p := getParser(c.DataType)
 		tp, err := p.ParseDataType()
@@ -180,12 +211,12 @@ func (p *PGDump) getColumnDefinition(ctx context.Context, schemaName string) ([]
 			})
 		}
 
-		columndefs = append(columndefs, &sqlast.SQLColumnDef{
+		columndefs[c.ColumnName] = &sqlast.SQLColumnDef{
 			DataType:    tp,
 			Default:     def,
 			Name:        sqlast.NewSQLIdent(c.ColumnName),
 			Constraints: constrains,
-		})
+		}
 	}
 
 	return columndefs, nil
@@ -233,7 +264,7 @@ func (p *PGDump) getTableConstrains(ctx context.Context, tableName string, keyma
 					information_schema.table_constraints
 				left join information_schema.referential_constraints on referential_constraints.constraint_name = table_constraints.constraint_name
  				join information_schema.constraint_column_usage on constraint_column_usage.constraint_name = table_constraints.constraint_name
- 				where table_constraints.table_schema = 'public' where table_constrains.table_name = $1`, tableName)
+ 				where table_constraints.table_schema = 'public' and table_constraints.table_name = $1`, tableName)
 
 	if err != nil {
 		return nil, errors.Errorf("selectContext failed: %w", err)

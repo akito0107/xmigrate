@@ -2,7 +2,19 @@
 
 
 [[projects]]
-  digest = "1:bf40199583e5143d1472fc34d10d6f4b69d97572142acf343b3e43136da40823"
+  branch = "master"
+  digest = "1:1bb4fff952365f21a74b04a996641c4fbd6f5a2acdd98ab8938da666a57b0fdb"
+  name = "github.com/akito0107/xsqlparser"
+  packages = [
+    ".",
+    "dialect",
+    "sqlast",
+  ]
+  pruneopts = "UT"
+  revision = "7d015d4af30ddfa6d52619580dbb20b61adf3971"
+
+[[projects]]
+  digest = "1:bb179c1a3b5d2b954725549b358818cd26b5dfd594bff23a6a803e55a7aa8d8a"
   name = "github.com/google/go-cmp"
   packages = [
     "cmp",
@@ -16,7 +28,7 @@
   version = "v0.3.0"
 
 [[projects]]
-  digest = "1:6c41d4f998a03b6604227ccad36edaed6126c397e5d78709ef4814a1145a6757"
+  digest = "1:fb9d0ca06ab2dbf4e28902887f53468b06878498927a3411b6569b45c6322c62"
   name = "github.com/jmoiron/sqlx"
   packages = [
     ".",
@@ -27,15 +39,7 @@
   version = "v1.2.0"
 
 [[projects]]
-  digest = "1:86c75d55fde56a814f69515d092963634d6f5f6bc1c3e9091b01fbe373a9546e"
-  name = "github.com/k0kubun/pp"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "3d73dea227e0711e38b911ffa6fbafc8ff6b2991"
-  version = "v3.0.1"
-
-[[projects]]
-  digest = "1:bdd53b87de8185da386bae179c84d4848854c6870bacacf6a154fe63e2e750f7"
+  digest = "1:decef4be943e7e9e51f26a684506bccb272b5cb27bb886b302ab9939b197eb5f"
   name = "github.com/lib/pq"
   packages = [
     ".",
@@ -47,32 +51,16 @@
   version = "v1.1.1"
 
 [[projects]]
-  digest = "1:2fa7b0155cd54479a755c629de26f888a918e13f8857a2c442205d825368e084"
-  name = "github.com/mattn/go-colorable"
+  digest = "1:b24d38b282bacf9791408a080f606370efa3d364e4b5fd9ba0f7b87786d3b679"
+  name = "github.com/urfave/cli"
   packages = ["."]
   pruneopts = "UT"
-  revision = "3a70a971f94a22f2fa562ffcc7a0eb45f5daf045"
-  version = "v0.1.1"
-
-[[projects]]
-  digest = "1:e150b5fafbd7607e2d638e4e5cf43aa4100124e5593385147b0a74e2733d8b0d"
-  name = "github.com/mattn/go-isatty"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "c2a7a6ca930a4cd0bc33a3f298eb71960732a3a7"
-  version = "v0.0.7"
+  revision = "cfb38830724cc34fedffe9a2a29fb54fa9169cd1"
+  version = "v1.20.0"
 
 [[projects]]
   branch = "master"
-  digest = "1:4fc43e824f7e546353de724c00507b1d9c0bab56344b10c2330a97f166a0fba7"
-  name = "golang.org/x/sys"
-  packages = ["unix"]
-  pruneopts = "UT"
-  revision = "24a5b2278f68f71a1d68a0a37deeb715f5b14cb2"
-
-[[projects]]
-  branch = "master"
-  digest = "1:c44a77760372a998be8d4656e8d3c865f68735ec4cad1743a245903a58f64249"
+  digest = "1:725d83d513d9315f92eb0848f78ac03931f9f0db36aefe0ee037134ad8cfb982"
   name = "golang.org/x/xerrors"
   packages = [
     ".",
@@ -85,10 +73,13 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/akito0107/xsqlparser",
+    "github.com/akito0107/xsqlparser/dialect",
+    "github.com/akito0107/xsqlparser/sqlast",
     "github.com/google/go-cmp/cmp",
     "github.com/jmoiron/sqlx",
-    "github.com/k0kubun/pp",
     "github.com/lib/pq",
+    "github.com/urfave/cli",
     "golang.org/x/xerrors",
   ]
   solver-name = "gps-cdcl"
