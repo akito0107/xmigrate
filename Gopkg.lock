@@ -3,7 +3,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:0e141a1c8e4b70802f856d10148013bc679c4e6790eeac42e63bb7ba938c7ab8"
+  digest = "1:e5772e9cd8225c0ba0e1c2a8a294fe2ff0aa0ccea383bdbc63a425700b27a193"
   name = "github.com/akito0107/xsqlparser"
   packages = [
     ".",
@@ -14,7 +14,7 @@
   revision = "8276d0863d36772699e635ce9d546e2e1ce7228c"
 
 [[projects]]
-  digest = "1:bf40199583e5143d1472fc34d10d6f4b69d97572142acf343b3e43136da40823"
+  digest = "1:bb179c1a3b5d2b954725549b358818cd26b5dfd594bff23a6a803e55a7aa8d8a"
   name = "github.com/google/go-cmp"
   packages = [
     "cmp",
@@ -28,7 +28,7 @@
   version = "v0.3.0"
 
 [[projects]]
-  digest = "1:6c41d4f998a03b6604227ccad36edaed6126c397e5d78709ef4814a1145a6757"
+  digest = "1:fb9d0ca06ab2dbf4e28902887f53468b06878498927a3411b6569b45c6322c62"
   name = "github.com/jmoiron/sqlx"
   packages = [
     ".",
@@ -39,7 +39,7 @@
   version = "v1.2.0"
 
 [[projects]]
-  digest = "1:bdd53b87de8185da386bae179c84d4848854c6870bacacf6a154fe63e2e750f7"
+  digest = "1:decef4be943e7e9e51f26a684506bccb272b5cb27bb886b302ab9939b197eb5f"
   name = "github.com/lib/pq"
   packages = [
     ".",
@@ -51,6 +51,14 @@
   version = "v1.1.1"
 
 [[projects]]
+  digest = "1:860c25446f565f998eb698ddc033e9e43b2546eb950b20aca28f30ba73deb86d"
+  name = "github.com/oklog/ulid"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "be3bccf06dda9a40aa6800c4736ac77f2fef987f"
+  version = "v2.0.2"
+
+[[projects]]
   digest = "1:b24d38b282bacf9791408a080f606370efa3d364e4b5fd9ba0f7b87786d3b679"
   name = "github.com/urfave/cli"
   packages = ["."]
@@ -60,7 +68,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:c44a77760372a998be8d4656e8d3c865f68735ec4cad1743a245903a58f64249"
+  digest = "1:725d83d513d9315f92eb0848f78ac03931f9f0db36aefe0ee037134ad8cfb982"
   name = "golang.org/x/xerrors"
   packages = [
     ".",
@@ -79,6 +87,7 @@
     "github.com/google/go-cmp/cmp",
     "github.com/jmoiron/sqlx",
     "github.com/lib/pq",
+    "github.com/oklog/ulid",
     "github.com/urfave/cli",
     "golang.org/x/xerrors",
   ]

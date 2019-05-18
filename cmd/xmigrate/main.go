@@ -3,13 +3,17 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
+	"math/rand"
 	"os"
+	"time"
 
 	"github.com/akito0107/xmigrate"
 	"github.com/akito0107/xsqlparser"
 	"github.com/akito0107/xsqlparser/dialect"
 	"github.com/akito0107/xsqlparser/sqlast"
+	"github.com/oklog/ulid"
 	"github.com/urfave/cli"
 )
 
@@ -36,6 +40,7 @@ func main() {
 			Flags: []cli.Flag{
 				cli.StringFlag{Name: "schema,f", Value: "schema.sql", Usage: "target schema file path"},
 				cli.BoolFlag{Name: "preview"},
+				cli.StringFlag{Name: "migrations,m", Value: "migrations", Usage: "migrations file dir"},
 			},
 			Action: diffAction,
 		},
@@ -110,20 +115,52 @@ func diffAction(c *cli.Context) error {
 	}
 
 	preview := c.Bool("preview")
+	migdir := c.String("migrations")
 
-	if preview {
-		fmt.Println("diff between current and target state is...")
-		for _, d := range diffs {
-			fmt.Println(d.Spec.ToSQLString())
+	for _, d := range diffs {
+		err = func() error {
+			var upout io.Writer
+			var downout io.Writer
+
+			if preview {
+				fmt.Println("diff between current and target state is...")
+				upout = os.Stdout
+				downout = os.Stdout
+			} else {
+				t := time.Now()
+
+				entropy := ulid.Monotonic(rand.New(rand.NewSource(t.UnixNano())), 0)
+				id := ulid.MustNew(ulid.Timestamp(t), entropy)
+				upf, err := os.Create(fmt.Sprintf("%s/%s.up.sql", migdir, id))
+				if err != nil {
+					return err
+				}
+				defer upf.Close()
+				upout = upf
+
+				downf, err := os.Create(fmt.Sprintf("%s/%s.down.sql", migdir, id))
+				if err != nil {
+					return err
+				}
+				defer downf.Close()
+				downout = downf
+			}
+
+			fmt.Fprintln(upout, d.Spec.ToSQLString())
 			inv, err := xmigrate.Inverse(d, res)
 			if err != nil {
 				return err
 			}
-			fmt.Println("inverse")
-			fmt.Println(inv.Spec.ToSQLString())
-		}
-		return nil
-	}
+			if preview {
+				fmt.Println("inverse: ")
+			}
+			fmt.Fprintln(downout, inv.Spec.ToSQLString())
 
+			return nil
+		}()
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
