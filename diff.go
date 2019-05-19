@@ -2,6 +2,7 @@ package xmigrate
 
 import (
 	"log"
+	"reflect"
 
 	errors "golang.org/x/xerrors"
 
@@ -46,9 +47,9 @@ func Diff(targ []*sqlast.SQLCreateTable, currentTable []*TableDef) ([]*SchemaDif
 			})
 			continue
 		}
-		diff, err := computeDiff(v, c)
+		diff, err := computeTableDiff(v, c)
 		if err != nil {
-			return nil, errors.Errorf("computeDiff failed: %w", err)
+			return nil, errors.Errorf("computeTableDiff failed: %w", err)
 		}
 
 		diffs = append(diffs, diff...)
@@ -133,7 +134,7 @@ func (d *DropColumnSpec) ToSQLString() string {
 	return sql.ToSQLString()
 }
 
-func computeDiff(targ *sqlast.SQLCreateTable, currentTable *TableDef) ([]*SchemaDiff, error) {
+func computeTableDiff(targ *sqlast.SQLCreateTable, currentTable *TableDef) ([]*SchemaDiff, error) {
 	var diffs []*SchemaDiff
 	var targNames []string
 
@@ -145,7 +146,7 @@ func computeDiff(targ *sqlast.SQLCreateTable, currentTable *TableDef) ([]*Schema
 			cmap[tp.Name.ToSQLString()] = struct{}{}
 			targNames = append(targNames, tp.Name.ToSQLString())
 
-			_, ok := currentTable.Columns[tp.Name.ToSQLString()]
+			curr, ok := currentTable.Columns[tp.Name.ToSQLString()]
 			if !ok {
 				diffs = append(diffs, &SchemaDiff{
 					Type: AddColumn,
@@ -154,6 +155,16 @@ func computeDiff(targ *sqlast.SQLCreateTable, currentTable *TableDef) ([]*Schema
 						ColumnDef: tp,
 					},
 				})
+				continue
+			}
+
+			hasDiff, diff, err := computeColumnDiff(targ.Name.ToSQLString(), tp, curr)
+			if err != nil {
+				return nil, errors.Errorf("computeColumnDiff failed: %w", err)
+			}
+
+			if hasDiff {
+				diffs = append(diffs, diff...)
 			}
 
 		case *sqlast.TableConstraint:
@@ -177,4 +188,92 @@ func computeDiff(targ *sqlast.SQLCreateTable, currentTable *TableDef) ([]*Schema
 	}
 
 	return diffs, nil
+}
+
+type EditColumnSpec struct {
+	SQL *sqlast.SQLAlterTable
+}
+
+func (e *EditColumnSpec) ToSQLString() string {
+	return e.SQL.ToSQLString()
+}
+
+// pattern:
+// type change
+// NULL <=> NOT NULL
+// constraints change
+//   unique
+//   check
+func computeColumnDiff(tableName string, targ *sqlast.SQLColumnDef, current *sqlast.SQLColumnDef) (bool, []*SchemaDiff, error) {
+	var diffs []*SchemaDiff
+
+	// change data type
+	if !reflect.DeepEqual(targ.DataType, current.DataType) {
+		sql := &sqlast.SQLAlterTable{
+			TableName: sqlast.NewSQLObjectName(tableName),
+			Action: &sqlast.AlterColumnTableAction{
+				ColumnName: targ.Name,
+				Action: &sqlast.PGAlterDataTypeColumnAction{
+					DataType: targ.DataType,
+				},
+			},
+		}
+
+		diffs = append(diffs, &SchemaDiff{
+			Type: EditColumn,
+			Spec: &EditColumnSpec{
+				SQL: sql,
+			},
+		})
+	}
+
+	tnn := hasNotNullConstrait(targ)
+	cnn := hasNotNullConstrait(current)
+
+	if tnn && !cnn {
+		sql := &sqlast.SQLAlterTable{
+			TableName: sqlast.NewSQLObjectName(tableName),
+			Action: &sqlast.AlterColumnTableAction{
+				ColumnName: targ.Name,
+				Action:     &sqlast.PGSetNotNullColumnAction{},
+			},
+		}
+
+		diffs = append(diffs, &SchemaDiff{
+			Type: EditColumn,
+			Spec: &EditColumnSpec{
+				SQL: sql,
+			},
+		})
+	} else if !tnn && cnn {
+		sql := &sqlast.SQLAlterTable{
+			TableName: sqlast.NewSQLObjectName(tableName),
+			Action: &sqlast.AlterColumnTableAction{
+				ColumnName: targ.Name,
+				Action:     &sqlast.PGDropNotNullColumnAction{},
+			},
+		}
+
+		diffs = append(diffs, &SchemaDiff{
+			Type: EditColumn,
+			Spec: &EditColumnSpec{
+				SQL: sql,
+			},
+		})
+	}
+
+	if len(diffs) > 0 {
+		return true, diffs, nil
+	}
+
+	return false, nil, nil
+}
+
+func hasNotNullConstrait(def *sqlast.SQLColumnDef) bool {
+	for _, c := range def.Constraints {
+		if _, ok := c.Spec.(*sqlast.NotNullColumnSpec); ok {
+			return true
+		}
+	}
+	return false
 }

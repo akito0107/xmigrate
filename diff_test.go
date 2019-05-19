@@ -1,0 +1,241 @@
+package xmigrate
+
+import (
+	"bytes"
+	"reflect"
+	"testing"
+	"unicode"
+
+	"github.com/akito0107/xsqlparser"
+	"github.com/akito0107/xsqlparser/dialect"
+	"github.com/akito0107/xsqlparser/sqlast"
+	"github.com/google/go-cmp/cmp"
+)
+
+func TestDiff(t *testing.T) {
+	cases := []struct {
+		name    string
+		target  string
+		current string
+		expect  []*SchemaDiff
+	}{
+		{
+			name:    "add table",
+			target:  "create table test1(id int primary key);",
+			current: "",
+			expect: []*SchemaDiff{
+				{
+					Type: AddTable,
+					Spec: &AddTableSpec{
+						SQL: &sqlast.SQLCreateTable{
+							Name: sqlast.NewSQLObjectName("test1"),
+							Elements: []sqlast.TableElement{
+								&sqlast.SQLColumnDef{
+									Name:     sqlast.NewSQLIdent("id"),
+									DataType: &sqlast.Int{},
+									Constraints: []*sqlast.ColumnConstraint{
+										{
+											Spec: &sqlast.UniqueColumnSpec{
+												IsPrimaryKey: true,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:   "drop table",
+			target: "create table test1(id int primary key);",
+			current: `create table test1(id int primary key);
+create table test2(id int primary key);
+`,
+			expect: []*SchemaDiff{
+				{
+					Type: DropTable,
+					Spec: &DropTableSpec{
+						TableName: "test2",
+					},
+				},
+			},
+		},
+		{
+			name: "add column",
+			target: `create table test1(
+	id int primary key,
+	name varchar not null
+);`,
+			current: "create table test1(id int primary key);",
+			expect: []*SchemaDiff{
+				{
+					Type: AddColumn,
+					Spec: &AddColumnSpec{
+						TableName: "test1",
+						ColumnDef: &sqlast.SQLColumnDef{
+							Name:     sqlast.NewSQLIdent("name"),
+							DataType: &sqlast.VarcharType{},
+							Constraints: []*sqlast.ColumnConstraint{
+								{
+									Spec: &sqlast.NotNullColumnSpec{},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:   "drop column",
+			target: "create table test1(id int primary key);",
+			current: `create table test1(
+	id int primary key,
+	name varchar not null
+);`,
+			expect: []*SchemaDiff{
+				{
+					Type: DropColumn,
+					Spec: &DropColumnSpec{
+						TableName:  "test1",
+						ColumnName: "name",
+					},
+				},
+			},
+		},
+		{
+			name:    "edit column (change type)",
+			target:  "create table test1(id int primary key, name varchar);",
+			current: "create table test1(id int primary key, name int);",
+			expect: []*SchemaDiff{
+				{
+					Type: EditColumn,
+					Spec: &EditColumnSpec{
+						SQL: &sqlast.SQLAlterTable{
+							TableName: sqlast.NewSQLObjectName("test1"),
+							Action: &sqlast.AlterColumnTableAction{
+								ColumnName: sqlast.NewSQLIdent("name"),
+								Action: &sqlast.PGAlterDataTypeColumnAction{
+									DataType: &sqlast.VarcharType{},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:    "edit column (not null)",
+			target:  "create table test1(id int primary key, name varchar not null);",
+			current: "create table test1(id int primary key, name varchar);",
+			expect: []*SchemaDiff{
+				{
+					Type: EditColumn,
+					Spec: &EditColumnSpec{
+						SQL: &sqlast.SQLAlterTable{
+							TableName: sqlast.NewSQLObjectName("test1"),
+							Action: &sqlast.AlterColumnTableAction{
+								ColumnName: sqlast.NewSQLIdent("name"),
+								Action:     &sqlast.PGSetNotNullColumnAction{},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:    "edit column (nullable)",
+			target:  "create table test1(id int primary key, name varchar);",
+			current: "create table test1(id int primary key, name varchar not null);",
+			expect: []*SchemaDiff{
+				{
+					Type: EditColumn,
+					Spec: &EditColumnSpec{
+						SQL: &sqlast.SQLAlterTable{
+							TableName: sqlast.NewSQLObjectName("test1"),
+							Action: &sqlast.AlterColumnTableAction{
+								ColumnName: sqlast.NewSQLIdent("name"),
+								Action:     &sqlast.PGDropNotNullColumnAction{},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			targ := parseCreateTable(t, c.target)
+			curr := genTableDef(t, c.current)
+
+			diff, err := Diff(targ, curr)
+			if err != nil {
+				t.Fatalf("%+v", err)
+			}
+
+			if d := cmp.Diff(diff, c.expect, IgnoreMarker); d != "" {
+				t.Errorf("diff: %s", d)
+			}
+		})
+	}
+}
+
+func genTableDef(t *testing.T, def string) []*TableDef {
+	t.Helper()
+	creates := parseCreateTable(t, def)
+
+	var defs []*TableDef
+	for _, c := range creates {
+		columns := make(map[string]*sqlast.SQLColumnDef)
+
+		for _, col := range c.Elements {
+			column, ok := col.(*sqlast.SQLColumnDef)
+			if !ok {
+				t.Fatalf("%s is not columndef", col.ToSQLString())
+			}
+
+			columns[column.Name.ToSQLString()] = column
+		}
+		defs = append(defs, &TableDef{
+			Name:    c.Name.ToSQLString(),
+			Columns: columns,
+		})
+	}
+
+	return defs
+}
+
+func parseCreateTable(t *testing.T, in string) []*sqlast.SQLCreateTable {
+	t.Helper()
+	parser, err := xsqlparser.NewParser(bytes.NewBufferString(in), &dialect.PostgresqlDialect{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	stmts, err := parser.ParseSQL()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var creates []*sqlast.SQLCreateTable
+
+	for _, s := range stmts {
+		c, ok := s.(*sqlast.SQLCreateTable)
+		if !ok {
+			t.Fatalf("%s is not a create table stmts", s.ToSQLString())
+		}
+
+		creates = append(creates, c)
+	}
+
+	return creates
+}
+
+var IgnoreMarker = cmp.FilterPath(func(paths cmp.Path) bool {
+	s := paths.Last().Type()
+	name := s.Name()
+	r := []rune(name)
+	return s.Kind() == reflect.Struct && len(r) > 0 && unicode.IsLower(r[0])
+}, cmp.Ignore())
