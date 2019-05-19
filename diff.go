@@ -190,12 +190,27 @@ func computeTableDiff(targ *sqlast.SQLCreateTable, currentTable *TableDef) ([]*S
 	return diffs, nil
 }
 
+type EditColumnType int
+
+const (
+	EditType EditColumnType = iota
+	SetNotNull
+	DropNotNull
+)
+
 type EditColumnSpec struct {
-	SQL *sqlast.SQLAlterTable
+	Type       EditColumnType
+	TableName  string
+	ColumnName string
+	SQL        *sqlast.SQLAlterTable
 }
 
 func (e *EditColumnSpec) ToSQLString() string {
 	return e.SQL.ToSQLString()
+}
+
+type EditColumnAction interface {
+	ToSQLString() string
 }
 
 // pattern:
@@ -222,7 +237,10 @@ func computeColumnDiff(tableName string, targ *sqlast.SQLColumnDef, current *sql
 		diffs = append(diffs, &SchemaDiff{
 			Type: EditColumn,
 			Spec: &EditColumnSpec{
-				SQL: sql,
+				TableName:  tableName,
+				Type:       EditType,
+				ColumnName: targ.Name.ToSQLString(),
+				SQL:        sql,
 			},
 		})
 	}
@@ -242,7 +260,10 @@ func computeColumnDiff(tableName string, targ *sqlast.SQLColumnDef, current *sql
 		diffs = append(diffs, &SchemaDiff{
 			Type: EditColumn,
 			Spec: &EditColumnSpec{
-				SQL: sql,
+				TableName:  tableName,
+				Type:       SetNotNull,
+				ColumnName: targ.Name.ToSQLString(),
+				SQL:        sql,
 			},
 		})
 	} else if !tnn && cnn {
@@ -257,7 +278,10 @@ func computeColumnDiff(tableName string, targ *sqlast.SQLColumnDef, current *sql
 		diffs = append(diffs, &SchemaDiff{
 			Type: EditColumn,
 			Spec: &EditColumnSpec{
-				SQL: sql,
+				TableName:  tableName,
+				Type:       DropNotNull,
+				ColumnName: targ.Name.ToSQLString(),
+				SQL:        sql,
 			},
 		})
 	}

@@ -112,6 +112,9 @@ create table test2(id int primary key);
 				{
 					Type: EditColumn,
 					Spec: &EditColumnSpec{
+						Type:       EditType,
+						TableName:  "test1",
+						ColumnName: "name",
 						SQL: &sqlast.SQLAlterTable{
 							TableName: sqlast.NewSQLObjectName("test1"),
 							Action: &sqlast.AlterColumnTableAction{
@@ -133,6 +136,9 @@ create table test2(id int primary key);
 				{
 					Type: EditColumn,
 					Spec: &EditColumnSpec{
+						Type:       SetNotNull,
+						TableName:  "test1",
+						ColumnName: "name",
 						SQL: &sqlast.SQLAlterTable{
 							TableName: sqlast.NewSQLObjectName("test1"),
 							Action: &sqlast.AlterColumnTableAction{
@@ -152,6 +158,9 @@ create table test2(id int primary key);
 				{
 					Type: EditColumn,
 					Spec: &EditColumnSpec{
+						Type:       DropNotNull,
+						TableName:  "test1",
+						ColumnName: "name",
 						SQL: &sqlast.SQLAlterTable{
 							TableName: sqlast.NewSQLObjectName("test1"),
 							Action: &sqlast.AlterColumnTableAction{

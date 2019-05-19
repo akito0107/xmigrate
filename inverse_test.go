@@ -130,6 +130,78 @@ create table test2(id int primary key);`,
 				},
 			},
 		},
+		{
+			name:    "edit column",
+			current: `create table test1(id int primary key, name varchar not null);`,
+			diff: &SchemaDiff{
+				Type: EditColumn,
+				Spec: &EditColumnSpec{
+					Type:       EditType,
+					TableName:  "test1",
+					ColumnName: "name",
+					SQL: &sqlast.SQLAlterTable{
+						TableName: sqlast.NewSQLObjectName("test1"),
+						Action: &sqlast.AlterColumnTableAction{
+							ColumnName: sqlast.NewSQLIdent("name"),
+							Action: &sqlast.PGAlterDataTypeColumnAction{
+								DataType: &sqlast.Int{},
+							},
+						},
+					},
+				},
+			},
+			expect: &SchemaDiff{
+				Type: EditColumn,
+				Spec: &EditColumnSpec{
+					Type:       EditType,
+					TableName:  "test1",
+					ColumnName: "name",
+					SQL: &sqlast.SQLAlterTable{
+						TableName: sqlast.NewSQLObjectName("test1"),
+						Action: &sqlast.AlterColumnTableAction{
+							ColumnName: sqlast.NewSQLIdent("name"),
+							Action: &sqlast.PGAlterDataTypeColumnAction{
+								DataType: &sqlast.VarcharType{},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:    "nullable",
+			current: `create table test1(id int primary key, name varchar not null);`,
+			diff: &SchemaDiff{
+				Type: EditColumn,
+				Spec: &EditColumnSpec{
+					Type:       DropNotNull,
+					TableName:  "test1",
+					ColumnName: "name",
+					SQL: &sqlast.SQLAlterTable{
+						TableName: sqlast.NewSQLObjectName("test1"),
+						Action: &sqlast.AlterColumnTableAction{
+							ColumnName: sqlast.NewSQLIdent("name"),
+							Action:     &sqlast.PGDropNotNullColumnAction{},
+						},
+					},
+				},
+			},
+			expect: &SchemaDiff{
+				Type: EditColumn,
+				Spec: &EditColumnSpec{
+					Type:       SetNotNull,
+					TableName:  "test1",
+					ColumnName: "name",
+					SQL: &sqlast.SQLAlterTable{
+						TableName: sqlast.NewSQLObjectName("test1"),
+						Action: &sqlast.AlterColumnTableAction{
+							ColumnName: sqlast.NewSQLIdent("name"),
+							Action:     &sqlast.PGSetNotNullColumnAction{},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, c := range cases {

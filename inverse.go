@@ -54,6 +54,64 @@ func Inverse(diff *SchemaDiff, currentTable []*TableDef) (*SchemaDiff, error) {
 			},
 		}, nil
 
+	case *EditColumnSpec:
+		switch spec.Type {
+		case SetNotNull:
+			return &SchemaDiff{
+				Type: EditColumn,
+				Spec: &EditColumnSpec{
+					Type:       DropNotNull,
+					TableName:  spec.TableName,
+					ColumnName: spec.ColumnName,
+					SQL: &sqlast.SQLAlterTable{
+						TableName: sqlast.NewSQLObjectName(spec.SQL.TableName.ToSQLString()),
+						Action: &sqlast.AlterColumnTableAction{
+							ColumnName: sqlast.NewSQLIdent(spec.ColumnName),
+							Action:     &sqlast.PGDropNotNullColumnAction{},
+						},
+					},
+				},
+			}, nil
+		case DropNotNull:
+			return &SchemaDiff{
+				Type: EditColumn,
+				Spec: &EditColumnSpec{
+					Type:       SetNotNull,
+					TableName:  spec.TableName,
+					ColumnName: spec.ColumnName,
+					SQL: &sqlast.SQLAlterTable{
+						TableName: sqlast.NewSQLObjectName(spec.SQL.TableName.ToSQLString()),
+						Action: &sqlast.AlterColumnTableAction{
+							ColumnName: sqlast.NewSQLIdent(spec.ColumnName),
+							Action:     &sqlast.PGSetNotNullColumnAction{},
+						},
+					},
+				},
+			}, nil
+		case EditType:
+			t := getTable(spec.TableName, currentTable)
+			col := t.Columns[spec.ColumnName]
+			return &SchemaDiff{
+				Type: EditColumn,
+				Spec: &EditColumnSpec{
+					Type:       EditType,
+					TableName:  spec.TableName,
+					ColumnName: spec.ColumnName,
+					SQL: &sqlast.SQLAlterTable{
+						TableName: sqlast.NewSQLObjectName(spec.SQL.TableName.ToSQLString()),
+						Action: &sqlast.AlterColumnTableAction{
+							ColumnName: sqlast.NewSQLIdent(spec.ColumnName),
+							Action: &sqlast.PGAlterDataTypeColumnAction{
+								DataType: col.DataType,
+							},
+						},
+					},
+				},
+			}, nil
+		default:
+			return nil, errors.Errorf("unknown spec %+v", diff)
+		}
+
 	default:
 		return nil, errors.Errorf("unknown spec %+v", diff)
 	}
