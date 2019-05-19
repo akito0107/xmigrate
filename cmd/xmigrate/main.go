@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math/rand"
 	"os"
 	"time"
 
@@ -13,7 +12,7 @@ import (
 	"github.com/akito0107/xsqlparser"
 	"github.com/akito0107/xsqlparser/dialect"
 	"github.com/akito0107/xsqlparser/sqlast"
-	"github.com/oklog/ulid"
+	"github.com/jmoiron/sqlx"
 	"github.com/urfave/cli"
 )
 
@@ -44,53 +43,51 @@ func main() {
 			},
 			Action: diffAction,
 		},
+		{
+			Name: "sync",
+			Flags: []cli.Flag{
+				cli.StringFlag{Name: "schema,f", Value: "schema.sql", Usage: "target schema file path"},
+				cli.BoolFlag{Name: "apply", Usage: "applying query (default dry-run mode)"},
+			},
+			Action: syncAction,
+		},
 	}
 
-	app.Run(os.Args)
+	if err := app.Run(os.Args); err != nil {
+		log.Fatalf("%+v", err)
+	}
 }
 
-func diffAction(c *cli.Context) error {
-	ctx := context.Background()
-
+func getConf(c *cli.Context) *xmigrate.PGConf {
 	host := c.GlobalString("host")
 	port := c.GlobalString("port")
 	dbname := c.GlobalString("dbname")
 	password := c.GlobalString("password")
 	username := c.GlobalString("username")
-
-	v := c.GlobalBool("verbose")
-	debug := func(format string, args ...interface{}) {
-		if v {
-			log.Printf(format, args)
-		}
-	}
-
-	conf := &xmigrate.PGConf{
+	return &xmigrate.PGConf{
 		DBName:     dbname,
 		DBHost:     host,
 		DBPort:     port,
 		DBPassword: password,
 		UserName:   username,
 	}
-	schemapath := c.String("schema")
+}
 
-	debug("%+v", schemapath)
-
+func getDiff(ctx context.Context, schemapath string, conf *xmigrate.PGConf) ([]*xmigrate.SchemaDiff, []*xmigrate.TableDef, error) {
 	schemafile, err := os.Open(schemapath)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 	defer schemafile.Close()
 
 	parser, err := xsqlparser.NewParser(schemafile, &dialect.PostgresqlDialect{})
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 	sqls, err := parser.ParseSQL()
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
-	debug("%+v", sqls)
 
 	var createTables []*sqlast.SQLCreateTable
 
@@ -106,13 +103,25 @@ func diffAction(c *cli.Context) error {
 
 	res, err := dumper.Dump(ctx)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	diffs, err := xmigrate.Diff(createTables, res)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
+
+	return diffs, res, nil
+
+}
+
+func diffAction(c *cli.Context) error {
+	ctx := context.Background()
+
+	conf := getConf(c)
+	schemapath := c.String("schema")
+
+	diffs, current, err := getDiff(ctx, schemapath, conf)
 
 	preview := c.Bool("preview")
 	migdir := c.String("migrations")
@@ -128,9 +137,8 @@ func diffAction(c *cli.Context) error {
 				downout = os.Stdout
 			} else {
 				t := time.Now()
+				id := fmt.Sprintf("%d", t.UnixNano())
 
-				entropy := ulid.Monotonic(rand.New(rand.NewSource(t.UnixNano())), 0)
-				id := ulid.MustNew(ulid.Timestamp(t), entropy)
 				upf, err := os.Create(fmt.Sprintf("%s/%s.up.sql", migdir, id))
 				if err != nil {
 					return err
@@ -147,7 +155,7 @@ func diffAction(c *cli.Context) error {
 			}
 
 			fmt.Fprintln(upout, d.Spec.ToSQLString())
-			inv, err := xmigrate.Inverse(d, res)
+			inv, err := xmigrate.Inverse(d, current)
 			if err != nil {
 				return err
 			}
@@ -162,5 +170,44 @@ func diffAction(c *cli.Context) error {
 			return err
 		}
 	}
+	return nil
+}
+
+func syncAction(c *cli.Context) error {
+	ctx := context.Background()
+
+	conf := getConf(c)
+	schemapath := c.String("schema")
+
+	diffs, _, err := getDiff(ctx, schemapath, conf)
+	if err != nil {
+		return err
+	}
+
+	apply := c.Bool("apply")
+	if !apply {
+		fmt.Println("dry-run mode (with --apply flag will be exec below queries)")
+	}
+	var db *sqlx.DB
+
+	if apply {
+		d, err := sqlx.Open("postgres", conf.Src())
+		if err != nil {
+			return err
+		}
+		db = d
+		defer db.Close()
+	}
+
+	for _, d := range diffs {
+		sql := d.Spec.ToSQLString()
+		fmt.Printf("applying: %s\n", sql)
+		if apply {
+			if _, err := db.Exec(sql); err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
