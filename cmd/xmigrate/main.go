@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/akito0107/xmigrate"
@@ -50,6 +52,20 @@ func main() {
 				cli.BoolFlag{Name: "apply", Usage: "applying query (default dry-run mode)"},
 			},
 			Action: syncAction,
+		},
+		{
+			Name: "new",
+			Flags: []cli.Flag{
+				cli.StringFlag{Name: "migrations,m", Value: "migrations", Usage: "migrations file dir"},
+			},
+			Action: newAction,
+		},
+		{
+			Name: "up",
+			Flags: []cli.Flag{
+				cli.StringFlag{Name: "migrations,m", Value: "migrations", Usage: "migrations file dir"},
+			},
+			Action: upAction,
 		},
 	}
 
@@ -206,6 +222,64 @@ func syncAction(c *cli.Context) error {
 			if _, err := db.Exec(sql); err != nil {
 				return err
 			}
+		}
+	}
+
+	return nil
+}
+
+func newAction(c *cli.Context) error {
+	migdir := c.String("migrations")
+
+	t := time.Now()
+	id := fmt.Sprintf("%d", t.UnixNano())
+
+	mes := "-- created by xmigrate"
+
+	upf, err := os.Create(fmt.Sprintf("%s/%s.up.sql", migdir, id))
+	if err != nil {
+		return err
+	}
+	defer upf.Close()
+	fmt.Fprintf(upf, mes)
+
+	downf, err := os.Create(fmt.Sprintf("%s/%s.down.sql", migdir, id))
+	if err != nil {
+		return err
+	}
+	defer downf.Close()
+	fmt.Fprintf(downf, mes)
+
+	return nil
+}
+
+func upAction(c *cli.Context) error {
+	conf := getConf(c)
+	ctx := context.Background()
+
+	migdir := c.String("migrations")
+
+	db, err := sqlx.Connect("postgres", conf.Src())
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	currentId, err := xmigrate.CheckCurrent(ctx, db)
+	if err != nil {
+		return err
+	}
+
+	files, err := ioutil.ReadDir(migdir)
+	if err != nil {
+		return err
+	}
+
+	var upmigrates []string
+
+	for _, f := range files {
+		if !strings.HasSuffix(f.Name(), ".up.sql") {
+			continue
 		}
 	}
 
