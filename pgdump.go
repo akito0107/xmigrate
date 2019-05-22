@@ -73,6 +73,15 @@ func (p *PGDump) Dump(ctx context.Context) ([]*TableDef, error) {
 			if ok {
 				c.Constraints = append(c.Constraints, cnts...)
 			}
+
+			_, isint := c.DataType.(*sqlast.Int)
+
+			// DataTypeをSerialにする
+			if isint && c.Default != nil && strings.HasPrefix(c.Default.ToSQLString(), "nextval") {
+				c.DataType = &sqlast.Custom{
+					Ty: sqlast.NewSQLObjectName("serial"),
+				}
+			}
 		}
 
 		tables = append(tables, &TableDef{

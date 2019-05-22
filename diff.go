@@ -298,6 +298,9 @@ func hasNotNullConstrait(def *sqlast.SQLColumnDef) bool {
 		if _, ok := c.Spec.(*sqlast.NotNullColumnSpec); ok {
 			return true
 		}
+		if _, ok := c.Spec.(*sqlast.UniqueColumnSpec); ok {
+			return true
+		}
 	}
 	return false
 }

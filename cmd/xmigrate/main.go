@@ -1,12 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -16,6 +18,7 @@ import (
 	"github.com/akito0107/xsqlparser/sqlast"
 	"github.com/jmoiron/sqlx"
 	"github.com/urfave/cli"
+	errors "golang.org/x/xerrors"
 )
 
 func main() {
@@ -280,6 +283,50 @@ func upAction(c *cli.Context) error {
 	for _, f := range files {
 		if !strings.HasSuffix(f.Name(), ".up.sql") {
 			continue
+		}
+	}
+	sort.Strings(upmigrates)
+
+	cnt := 0
+	for i := 0; i < len(upmigrates); i++ {
+		timestamps := strings.Split(upmigrates[i], ".")
+		if len(timestamps) != 3 {
+			return errors.Errorf("unknown file format %s", upmigrates[i])
+		}
+		cnt = i
+
+		if timestamps[0] == currentId {
+			break
+		}
+	}
+
+	if cnt == len(upmigrates) {
+		fmt.Println("already upgraded")
+		return nil
+	}
+
+	for _, u := range upmigrates[cnt+1:] {
+		err := func() error {
+			f, err := os.Open(u)
+			if err != nil {
+				return err
+			}
+			defer f.Close()
+
+			var buf bytes.Buffer
+
+			if _, err := io.Copy(f, &buf); err != nil {
+				return err
+			}
+
+			fmt.Println("applying...")
+			fmt.Println(buf.String())
+
+			return nil
+		}()
+
+		if err != nil {
+			return errors.Errorf("migrate %s error: %w", u, err)
 		}
 	}
 

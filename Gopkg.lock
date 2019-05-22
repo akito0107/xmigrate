@@ -3,7 +3,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:bd2067662ae3fe667278fb5dd8de484782318ce693089f48922a2a38766138f7"
+  digest = "1:0cd229dc638ed6063b671c2c117ef37243b3b16c72a672a38c9d2397cce4dc43"
   name = "github.com/akito0107/xsqlparser"
   packages = [
     ".",
@@ -14,7 +14,7 @@
   revision = "bd428ff033c7c2e03ea610873bca9b2ad81b6aa0"
 
 [[projects]]
-  digest = "1:bb179c1a3b5d2b954725549b358818cd26b5dfd594bff23a6a803e55a7aa8d8a"
+  digest = "1:bf40199583e5143d1472fc34d10d6f4b69d97572142acf343b3e43136da40823"
   name = "github.com/google/go-cmp"
   packages = [
     "cmp",
@@ -28,7 +28,7 @@
   version = "v0.3.0"
 
 [[projects]]
-  digest = "1:fb9d0ca06ab2dbf4e28902887f53468b06878498927a3411b6569b45c6322c62"
+  digest = "1:6c41d4f998a03b6604227ccad36edaed6126c397e5d78709ef4814a1145a6757"
   name = "github.com/jmoiron/sqlx"
   packages = [
     ".",
@@ -39,7 +39,7 @@
   version = "v1.2.0"
 
 [[projects]]
-  digest = "1:decef4be943e7e9e51f26a684506bccb272b5cb27bb886b302ab9939b197eb5f"
+  digest = "1:bdd53b87de8185da386bae179c84d4848854c6870bacacf6a154fe63e2e750f7"
   name = "github.com/lib/pq"
   packages = [
     ".",
@@ -60,7 +60,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:725d83d513d9315f92eb0848f78ac03931f9f0db36aefe0ee037134ad8cfb982"
+  digest = "1:c44a77760372a998be8d4656e8d3c865f68735ec4cad1743a245903a58f64249"
   name = "golang.org/x/xerrors"
   packages = [
     ".",
