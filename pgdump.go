@@ -128,7 +128,7 @@ type pgInformationSchemaTables struct {
 
 func (p *PGDump) getTableNames(ctx context.Context) ([]string, error) {
 	var tables []pgInformationSchemaTables
-	if err := p.db.SelectContext(ctx, &tables, "select * from information_schema.tables t where t.table_schema = 'public' order by table_name"); err != nil {
+	if err := p.db.SelectContext(ctx, &tables, "select * from information_schema.tables t where t.table_schema = 'public' and t.table_name != 'xmigrate' order by table_name"); err != nil {
 		return nil, errors.Errorf("selectContext failed: %w", err)
 	}
 

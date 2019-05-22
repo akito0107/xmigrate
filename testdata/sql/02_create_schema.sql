@@ -2,7 +2,7 @@
 
 create table account (
     account_id serial primary key,
-    name varchar(255) not null,
+    name varchar(255),
     email varchar(255) unique not null,
     age smallint not null,
     registered_at timestamp with time zone default current_timestamp

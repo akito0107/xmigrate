@@ -23,14 +23,11 @@ func CheckCurrent(ctx context.Context, db *sqlx.DB) (string, error) {
 create table xmigrate(
   id serial primary key,
   migrate_id varchar not null unique,
-  created_at timestamp with timezone default current_timestamp
+  created_at timestamp with time zone default current_timestamp
   )
 `); err != nil {
 			return "", errors.Errorf("execContext failed: %w", err)
 		}
-	}
-	if err != nil {
-		return "", errors.Errorf("getContext failed: %w", err)
 	}
 	var logs []MigrateLog
 
