@@ -64,6 +64,7 @@ func Diff(targ []*sqlast.SQLCreateTable, currentTable []*TableDef) ([]*SchemaDif
 				Type: DropTable,
 				Spec: spec,
 			})
+			continue
 		}
 
 	ELEMENTSLOOP:
