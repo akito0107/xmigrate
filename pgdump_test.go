@@ -67,7 +67,7 @@ func TestPGDump_Dump(t *testing.T) {
 		t.Fatalf("%+v", err)
 	}
 
-	if len(dumped) != 3 {
+	if len(dumped) != 5 {
 		t.Fatalf("%+v", dumped)
 	}
 

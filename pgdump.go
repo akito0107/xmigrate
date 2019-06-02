@@ -30,8 +30,9 @@ func (p *PGConf) Src() string {
 }
 
 type TableDef struct {
-	Name    string
-	Columns map[string]*sqlast.SQLColumnDef
+	Name       string
+	Columns    map[string]*sqlast.SQLColumnDef
+	Constrains []*sqlast.TableConstraint
 }
 
 type PGDump struct {
@@ -55,10 +56,10 @@ func (p *PGDump) Dump(ctx context.Context) ([]*TableDef, error) {
 	}
 
 	var tables []*TableDef
-	keymap := make(map[string]*columnInfo)
+	keymap := make(map[string][]*columnInfo)
 
 	for _, n := range tableNames {
-		constrains, err := p.getTableConstrains(ctx, n, keymap)
+		constrains, tableConstraints, err := p.getTableConstrains(ctx, n, keymap)
 		if err != nil {
 			return nil, errors.Errorf("getTableConstrains failed: %w", err)
 		}
@@ -76,7 +77,7 @@ func (p *PGDump) Dump(ctx context.Context) ([]*TableDef, error) {
 
 			_, isint := c.DataType.(*sqlast.Int)
 
-			// DataTypeをSerialにする
+			// convert to int with nextval to serial
 			if isint && c.Default != nil && strings.HasPrefix(c.Default.ToSQLString(), "nextval") {
 				c.DataType = &sqlast.Custom{
 					Ty: sqlast.NewSQLObjectName("serial"),
@@ -85,8 +86,9 @@ func (p *PGDump) Dump(ctx context.Context) ([]*TableDef, error) {
 		}
 
 		tables = append(tables, &TableDef{
-			Name:    n,
-			Columns: columns,
+			Name:       n,
+			Columns:    columns,
+			Constrains: tableConstraints,
 		})
 	}
 
@@ -102,9 +104,32 @@ func (p *PGDump) Dump(ctx context.Context) ([]*TableDef, error) {
 					return nil, errors.Errorf("key %s is not found", ref.Name.ToSQLString())
 				}
 
-				spec.TableName = sqlast.NewSQLObjectName(targinfo.TableName)
-				spec.Columns = []*sqlast.SQLIdent{sqlast.NewSQLIdent(targinfo.ColumnName)}
+				if len(targinfo) != 1 {
+					return nil, errors.Errorf("unknown column target %v", targinfo)
+				}
+
+				spec.TableName = sqlast.NewSQLObjectName(targinfo[0].TableName)
+				spec.Columns = []*sqlast.SQLIdent{sqlast.NewSQLIdent(targinfo[0].ColumnName)}
 			}
+		}
+
+		for _, c := range t.Constrains {
+			spec, ok := c.Spec.(*sqlast.ReferentialTableConstraint)
+			if !ok {
+				continue
+			}
+			targinfo, ok := keymap[c.Name.ToSQLString()]
+			if !ok {
+				return nil, errors.Errorf("key %s is not found", c.Name.ToSQLString())
+			}
+			spec.KeyExpr.TableName = sqlast.NewSQLIdentifier(sqlast.NewSQLIdent(targinfo[0].TableName))
+			var columns []*sqlast.SQLIdent
+
+			for _, column := range targinfo {
+				columns = append(columns, sqlast.NewSQLIdent(column.ColumnName))
+			}
+
+			spec.KeyExpr.Columns = columns
 		}
 	}
 
@@ -253,16 +278,42 @@ type pgInformationSchemaConstraints struct {
 	UniqueConstraintName sql.NullString `db:"unique_constraint_name"`
 }
 
+type pgTableConstraints struct {
+	ColumnCount    int    `db:"column_count"`
+	ConstraintName string `db:"constraint_name"`
+}
+
 type columnInfo struct {
 	TableName  string
 	ColumnName string
 }
 
-func (p *PGDump) getTableConstrains(ctx context.Context, tableName string, keymap map[string]*columnInfo) (map[string][]*sqlast.ColumnConstraint, error) {
+func (p *PGDump) getTableConstrains(ctx context.Context, tableName string, keymap map[string][]*columnInfo) (map[string][]*sqlast.ColumnConstraint, []*sqlast.TableConstraint, error) {
+
+	// looking for table constraints by counting columns which have same constraint_name
+	var pgTableConstraints []*pgTableConstraints
+
+	if err := p.db.SelectContext(ctx, &pgTableConstraints, `select
+                      count(table_constraints.constraint_name) as column_count, 
+					  table_constraints.constraint_name as constraint_name
+                  from
+                      information_schema.table_constraints
+                  left join information_schema.referential_constraints on referential_constraints.constraint_name = table_constraints.constraint_name
+                  join information_schema.constraint_column_usage on constraint_column_usage.constraint_name = table_constraints.constraint_name
+                  where table_constraints.table_schema = 'public' and table_constraints.table_name = $1 group by table_constraints.constraint_name`, tableName); err != nil {
+		return nil, nil, errors.Errorf("selectContext failed: %w", err)
+	}
+
+	tableConstraintsmap := make(map[string][]*pgInformationSchemaConstraints)
+
+	for _, t := range pgTableConstraints {
+		if t.ColumnCount > 1 {
+			tableConstraintsmap[t.ConstraintName] = []*pgInformationSchemaConstraints{}
+		}
+	}
 
 	var constrains []*pgInformationSchemaConstraints
-
-	err := p.db.SelectContext(ctx, &constrains,
+	if err := p.db.SelectContext(ctx, &constrains,
 		`select 
 					constraint_column_usage.column_name, 
 					table_constraints.constraint_name,
@@ -273,44 +324,85 @@ func (p *PGDump) getTableConstrains(ctx context.Context, tableName string, keyma
 					information_schema.table_constraints
 				left join information_schema.referential_constraints on referential_constraints.constraint_name = table_constraints.constraint_name
  				join information_schema.constraint_column_usage on constraint_column_usage.constraint_name = table_constraints.constraint_name
- 				where table_constraints.table_schema = 'public' and table_constraints.table_name = $1`, tableName)
-
-	if err != nil {
-		return nil, errors.Errorf("selectContext failed: %w", err)
+ 				where table_constraints.table_schema = 'public' and table_constraints.table_name = $1 order by table_constraints.constraint_name`, tableName); err != nil {
+		return nil, nil, errors.Errorf("selectContext failed: %w", err)
 	}
 
-	constraintmap := make(map[string][]*sqlast.ColumnConstraint)
+	// column constraints (key is column name)
+	columnConstraintmap := make(map[string][]*sqlast.ColumnConstraint)
 
 	for _, c := range constrains {
-		keymap[c.ConstraintName] = &columnInfo{
+		if _, ok := keymap[c.ConstraintName]; ok {
+			keymap[c.ConstraintName] = []*columnInfo{}
+		}
+		keymap[c.ConstraintName] = append(keymap[c.ConstraintName], &columnInfo{
 			TableName:  c.TableName,
 			ColumnName: c.ColumnName,
+		})
+
+		tc, ok := tableConstraintsmap[c.ConstraintName]
+		if ok {
+			tableConstraintsmap[c.ConstraintName] = append(tc, c)
+			continue
 		}
 
 		switch c.ConstraintType {
 		case "FOREIGN KEY":
-			constraintmap[c.ColumnName] = append(constraintmap[c.ColumnName], &sqlast.ColumnConstraint{
+			columnConstraintmap[c.ColumnName] = append(columnConstraintmap[c.ColumnName], &sqlast.ColumnConstraint{
 				Name: sqlast.NewSQLIdentifier(sqlast.NewSQLIdent(c.ConstraintName)),
 				Spec: &sqlast.ReferencesColumnSpec{},
 			})
 		case "UNIQUE":
-			constraintmap[c.ColumnName] = append(constraintmap[c.ColumnName], &sqlast.ColumnConstraint{
+			columnConstraintmap[c.ColumnName] = append(columnConstraintmap[c.ColumnName], &sqlast.ColumnConstraint{
 				Name: sqlast.NewSQLIdentifier(sqlast.NewSQLIdent(c.ConstraintName)),
 				Spec: &sqlast.UniqueColumnSpec{},
 			})
 		case "PRIMARY KEY":
-			constraintmap[c.ColumnName] = append(constraintmap[c.ColumnName], &sqlast.ColumnConstraint{
+			columnConstraintmap[c.ColumnName] = append(columnConstraintmap[c.ColumnName], &sqlast.ColumnConstraint{
 				Name: sqlast.NewSQLIdentifier(sqlast.NewSQLIdent(c.ConstraintName)),
 				Spec: &sqlast.UniqueColumnSpec{
 					IsPrimaryKey: true,
 				},
 			})
 		default:
-			return nil, errors.Errorf("currently unsupported constraint %s", c.ConstraintType)
+			return nil, nil, errors.Errorf("currently unsupported constraint %s", c.ConstraintType)
 		}
 	}
 
-	return constraintmap, nil
+	var tableConstraints []*sqlast.TableConstraint
+
+	for name, c := range tableConstraintsmap {
+
+		var spec sqlast.TableConstraintSpec
+		var columns []*sqlast.SQLIdent
+		for _, column := range c {
+			columns = append(columns, sqlast.NewSQLIdent(column.ColumnName))
+		}
+		switch c[0].ConstraintType {
+		case "FOREIGN KEY":
+			spec = &sqlast.ReferentialTableConstraint{
+				Columns: columns,
+				KeyExpr: &sqlast.ReferenceKeyExpr{},
+			}
+		case "UNIQUE":
+			spec = &sqlast.UniqueTableConstraint{
+				Columns: columns,
+			}
+		case "PRIMARY KEY":
+			spec = &sqlast.UniqueTableConstraint{
+				IsPrimary: true,
+				Columns:   columns,
+			}
+		default:
+			return nil, nil, errors.Errorf("currently unsupported table constraint %s", name)
+		}
+		tableConstraints = append(tableConstraints, &sqlast.TableConstraint{
+			Name: sqlast.NewSQLIdentifier(sqlast.NewSQLIdent(name)),
+			Spec: spec,
+		})
+	}
+
+	return columnConstraintmap, tableConstraints, nil
 }
 
 func getParser(src string) *xsqlparser.Parser {

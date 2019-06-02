@@ -16,8 +16,22 @@ create table category (
 create table item (
     item_id serial primary key,
     price int not null,
-    name varchar(255) not null,
+    name varchar not null,
     category_id int references category(category_id),
-    created_at timestamp with time zone default current_timestamp
+    created_at timestamp with time zone default current_timestamp,
+    CONSTRAINT unique_price_and_name UNIQUE (price, name)
+);
+
+create table subitem(
+    subitem_id serial primary key,
+    price int not null,
+    name varchar not null,
+    CONSTRAINT fkey_item_id_name FOREIGN KEY (price, name) REFERENCES item(price, name)
+);
+
+create table subcategory(
+    name varchar not null,
+    category_id  int not null,
+    CONSTRAINT pkey_name_category_id PRIMARY KEY (name, category_id)
 );
 

@@ -56,20 +56,22 @@ func main() {
 			},
 			Action: syncAction,
 		},
-		{
-			Name: "new",
-			Flags: []cli.Flag{
-				cli.StringFlag{Name: "migrations,m", Value: "migrations", Usage: "migrations file dir"},
+		/*
+			{
+				Name: "new",
+				Flags: []cli.Flag{
+					cli.StringFlag{Name: "migrations,m", Value: "migrations", Usage: "migrations file dir"},
+				},
+				Action: newAction,
 			},
-			Action: newAction,
-		},
-		{
-			Name: "up",
-			Flags: []cli.Flag{
-				cli.StringFlag{Name: "migrations,m", Value: "migrations", Usage: "migrations file dir"},
+			{
+				Name: "up",
+				Flags: []cli.Flag{
+					cli.StringFlag{Name: "migrations,m", Value: "migrations", Usage: "migrations file dir"},
+				},
+				Action: upAction,
 			},
-			Action: upAction,
-		},
+		*/
 	}
 
 	if err := app.Run(os.Args); err != nil {
