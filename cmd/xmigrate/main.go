@@ -12,13 +12,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/akito0107/xmigrate"
 	"github.com/akito0107/xsqlparser"
 	"github.com/akito0107/xsqlparser/dialect"
 	"github.com/akito0107/xsqlparser/sqlast"
 	"github.com/jmoiron/sqlx"
 	"github.com/urfave/cli"
 	errors "golang.org/x/xerrors"
+
+	"github.com/akito0107/xmigrate"
 )
 
 func main() {
@@ -37,17 +38,19 @@ func main() {
 	}
 
 	app.Commands = []cli.Command{
-		{
-			Name:    "diff",
-			Aliases: []string{"d"},
-			Usage:   "check diff between current table and schema.sql",
-			Flags: []cli.Flag{
-				cli.StringFlag{Name: "schema,f", Value: "schema.sql", Usage: "target schema file path"},
-				cli.BoolFlag{Name: "preview"},
-				cli.StringFlag{Name: "migrations,m", Value: "migrations", Usage: "migrations file dir"},
+		/*
+			{
+				Name:    "diff",
+				Aliases: []string{"d"},
+				Usage:   "check diff between current table and schema.sql",
+				Flags: []cli.Flag{
+					cli.StringFlag{Name: "schema,f", Value: "schema.sql", Usage: "target schema file path"},
+					cli.BoolFlag{Name: "preview"},
+					cli.StringFlag{Name: "migrations,m", Value: "migrations", Usage: "migrations file dir"},
+				},
+				Action: diffAction,
 			},
-			Action: diffAction,
-		},
+		*/
 		{
 			Name: "sync",
 			Flags: []cli.Flag{

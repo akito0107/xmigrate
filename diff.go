@@ -1,7 +1,6 @@
 package xmigrate
 
 import (
-	"log"
 	"reflect"
 
 	errors "golang.org/x/xerrors"
@@ -17,6 +16,8 @@ const (
 	AddTable
 	DropTable
 	EditColumn
+	AddTableConstraint
+	DropTableConstraint
 )
 
 type SchemaDiff struct {
@@ -56,12 +57,32 @@ func Diff(targ []*sqlast.SQLCreateTable, currentTable []*TableDef) ([]*SchemaDif
 	}
 
 	for n, v := range currentState {
-		_, ok := targetState[n]
+		t, ok := targetState[n]
 		if !ok {
 			spec := createDropTableSpec(v)
 			diffs = append(diffs, &SchemaDiff{
 				Type: DropTable,
 				Spec: spec,
+			})
+		}
+
+	ELEMENTSLOOP:
+		for _, e := range t.Elements {
+			c, ok := e.(*sqlast.TableConstraint)
+			if !ok {
+				continue
+			}
+			for _, currentConstraint := range v.Constrains {
+				if c.Name.ToSQLString() == currentConstraint.Name.ToSQLString() {
+					break ELEMENTSLOOP
+				}
+			}
+			diffs = append(diffs, &SchemaDiff{
+				Type: DropTableConstraint,
+				Spec: &DropTableConstraintSpec{
+					TableName:       t.Name.ToSQLString(),
+					ConstraintsName: c.Name.ToSQLString(),
+				},
 			})
 		}
 	}
@@ -134,6 +155,38 @@ func (d *DropColumnSpec) ToSQLString() string {
 	return sql.ToSQLString()
 }
 
+type AddTableConstraintSpec struct {
+	TableName     string
+	ConstraintDef *sqlast.TableConstraint
+}
+
+func (a *AddTableConstraintSpec) ToSQLString() string {
+	sql := &sqlast.SQLAlterTable{
+		TableName: sqlast.NewSQLObjectName(a.TableName),
+		Action: &sqlast.AddConstraintTableAction{
+			Constraint: a.ConstraintDef,
+		},
+	}
+
+	return sql.ToSQLString()
+}
+
+type DropTableConstraintSpec struct {
+	TableName       string
+	ConstraintsName string
+}
+
+func (d *DropTableConstraintSpec) ToSQLString() string {
+	sql := &sqlast.SQLAlterTable{
+		TableName: sqlast.NewSQLObjectName(d.TableName),
+		Action: &sqlast.DropConstraintTableAction{
+			Name: sqlast.NewSQLIdent(d.ConstraintsName),
+		},
+	}
+
+	return sql.ToSQLString()
+}
+
 func computeTableDiff(targ *sqlast.SQLCreateTable, currentTable *TableDef) ([]*SchemaDiff, error) {
 	var diffs []*SchemaDiff
 	var targNames []string
@@ -168,7 +221,23 @@ func computeTableDiff(targ *sqlast.SQLCreateTable, currentTable *TableDef) ([]*S
 			}
 
 		case *sqlast.TableConstraint:
-			log.Printf("table constraint %s uninmplemented \n", e.ToSQLString())
+			var found bool
+			for _, c := range currentTable.Constrains {
+				if tp.Name.ToSQLString() == c.Name.ToSQLString() {
+					found = true
+					break
+				}
+			}
+
+			if !found {
+				diffs = append(diffs, &SchemaDiff{
+					Type: AddTableConstraint,
+					Spec: &AddTableConstraintSpec{
+						TableName:     targ.Name.ToSQLString(),
+						ConstraintDef: tp,
+					},
+				})
+			}
 		default:
 			return nil, errors.Errorf("unknown elements %s", e.ToSQLString())
 		}
