@@ -58,7 +58,7 @@ func Diff(targ []*sqlast.SQLCreateTable, currentTable []*TableDef) ([]*SchemaDif
 	}
 
 	for n, v := range currentState {
-		t, ok := targetState[n]
+		t, ok := targetState[strings.ToLower(n)]
 		if !ok {
 			spec := createDropTableSpec(v)
 			diffs = append(diffs, &SchemaDiff{
@@ -68,24 +68,28 @@ func Diff(targ []*sqlast.SQLCreateTable, currentTable []*TableDef) ([]*SchemaDif
 			continue
 		}
 
-	ELEMENTSLOOP:
-		for _, e := range t.Elements {
-			c, ok := e.(*sqlast.TableConstraint)
-			if !ok {
-				continue
-			}
-			for _, currentConstraint := range v.Constrains {
-				if c.Name.ToSQLString() == currentConstraint.Name.ToSQLString() {
-					break ELEMENTSLOOP
+		for _, currentConstraint := range v.Constrains {
+			var found bool
+			for _, e := range t.Elements {
+				c, ok := e.(*sqlast.TableConstraint)
+				if !ok {
+					continue
+				}
+				if strings.EqualFold(c.Name.ToSQLString(), currentConstraint.Name.ToSQLString()) {
+					found = true
+					break
 				}
 			}
-			diffs = append(diffs, &SchemaDiff{
-				Type: DropTableConstraint,
-				Spec: &DropTableConstraintSpec{
-					TableName:       t.Name.ToSQLString(),
-					ConstraintsName: c.Name.ToSQLString(),
-				},
-			})
+
+			if !found {
+				diffs = append(diffs, &SchemaDiff{
+					Type: DropTableConstraint,
+					Spec: &DropTableConstraintSpec{
+						TableName:       t.Name.ToSQLString(),
+						ConstraintsName: currentConstraint.Name.ToSQLString(),
+					},
+				})
+			}
 		}
 	}
 
