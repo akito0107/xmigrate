@@ -315,8 +315,8 @@ func computeColumnDiff(tableName string, targ *sqlast.SQLColumnDef, current *sql
 		})
 	}
 
-	tnn := hasNotNullConstrait(targ)
-	cnn := hasNotNullConstrait(current)
+	tnn := hasNotNullConstraint(targ)
+	cnn := hasNotNullConstraint(current)
 
 	if tnn && !cnn {
 		sql := &sqlast.SQLAlterTable{
@@ -363,7 +363,7 @@ func computeColumnDiff(tableName string, targ *sqlast.SQLColumnDef, current *sql
 	return false, nil, nil
 }
 
-func hasNotNullConstrait(def *sqlast.SQLColumnDef) bool {
+func hasNotNullConstraint(def *sqlast.SQLColumnDef) bool {
 	for _, c := range def.Constraints {
 		if _, ok := c.Spec.(*sqlast.NotNullColumnSpec); ok {
 			return true
