@@ -2,6 +2,7 @@ package xmigrate
 
 import (
 	"reflect"
+	"strings"
 
 	errors "golang.org/x/xerrors"
 
@@ -30,7 +31,7 @@ func Diff(targ []*sqlast.SQLCreateTable, currentTable []*TableDef) ([]*SchemaDif
 
 	targetState := make(map[string]*sqlast.SQLCreateTable)
 	for _, t := range targ {
-		targetState[t.Name.ToSQLString()] = t
+		targetState[strings.ToLower(t.Name.ToSQLString())] = t
 	}
 
 	currentState := make(map[string]*TableDef)
@@ -197,10 +198,10 @@ func computeTableDiff(targ *sqlast.SQLCreateTable, currentTable *TableDef) ([]*S
 	for _, e := range targ.Elements {
 		switch tp := e.(type) {
 		case *sqlast.SQLColumnDef:
-			cmap[tp.Name.ToSQLString()] = struct{}{}
+			cmap[strings.ToLower(tp.Name.ToSQLString())] = struct{}{}
 			targNames = append(targNames, tp.Name.ToSQLString())
 
-			curr, ok := currentTable.Columns[tp.Name.ToSQLString()]
+			curr, ok := currentTable.Columns[strings.ToLower(tp.Name.ToSQLString())]
 			if !ok {
 				diffs = append(diffs, &SchemaDiff{
 					Type: AddColumn,
@@ -224,7 +225,7 @@ func computeTableDiff(targ *sqlast.SQLCreateTable, currentTable *TableDef) ([]*S
 		case *sqlast.TableConstraint:
 			var found bool
 			for _, c := range currentTable.Constrains {
-				if tp.Name.ToSQLString() == c.Name.ToSQLString() {
+				if strings.EqualFold(tp.Name.ToSQLString(), c.Name.ToSQLString()) {
 					found = true
 					break
 				}

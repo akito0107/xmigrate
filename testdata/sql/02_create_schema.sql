@@ -1,5 +1,3 @@
-
-
 create table account (
     account_id serial primary key,
     name varchar(255),
