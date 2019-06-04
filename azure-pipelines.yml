@@ -46,7 +46,14 @@ steps:
         dep ensure
     fi
   workingDirectory: '$(modulePath)'
-  displayName: 'Get dependencies, and the test'
+  displayName: 'Get dependencies'
+
+- task: DockerCompose@0
+  displayName: Run a Docker Compose
+  inputs:
+    dockerComposeFile: ./testdata/docker-compose.yaml
+    action: Run a Docker Compose command
+    dockerComposeCommand: up
 
 - script: |
     go test -race -coverprofile=coverage.txt -covermode=atomic ./...
