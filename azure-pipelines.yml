@@ -5,12 +5,20 @@ resources:
   containers:
   - container: runner
     image: ubuntu:16.04
+    ports:
+    - 5432:5432
   - container: pg11
     image: postgres:11
+    ports:
+    - 5432:5432
   - container: pg10
     image: postgres:10
+    ports:
+    - 5432:5432
   - container: pg96
     image: postgres:9.6
+    ports:
+    - 5432:5432
 
 pool:
   vmImage: 'ubuntu-16.04'
