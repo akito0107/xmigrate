@@ -20,7 +20,7 @@ type PGConf struct {
 	DBName     string `env:"DB_NAME"`
 	DBHost     string `env:"DB_HOST"`
 	DBPort     string `env:"DB_PORT"`
-	DBPassword string `env:"DB_PASSWORD"`
+	DBPassword string `env:"DB_PASSWORD,allow-empty"`
 	UserName   string `env:"DB_USER_NAME"`
 	SSLMode    bool   `env:"DB_SSL_MODE,allow-empty"`
 }
@@ -261,7 +261,7 @@ func parseTypeOption(tp sqlast.SQLType, info *pgInformationSchemaColumns) sqlast
 	case *sqlast.VarcharType:
 		if info.CharacterMaximumLength.Valid {
 			return &sqlast.VarcharType{
-				Size: sqlast.NewSize(uint8(info.CharacterMaximumLength.Int64)),
+				Size: sqlast.NewSize(uint(info.CharacterMaximumLength.Int64)),
 			}
 		}
 		return tp

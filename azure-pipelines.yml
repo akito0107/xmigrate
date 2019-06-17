@@ -1,20 +1,44 @@
-# Go
-# Build your Go project.
-# Add steps that test, save build artifacts, deploy, and more:
-# https://docs.microsoft.com/azure/devops/pipelines/languages/go
-
 trigger:
 - master
 
-strategy:
-  matrix:
-    go_11:
-      go_version: 1.11
-    go_12:
-      go_version: 1.12
+resources:
+  containers:
+  - container: pg11
+    image: postgres:11
+    ports:
+    - 5432:5432
+  - container: pg10
+    image: postgres:10
+    ports:
+    - 5432:5432
+  - container: pg96
+    image: postgres:9.6
+    ports:
+    - 5432:5432
 
 pool:
-  vmImage: 'ubuntu-latest'
+  vmImage: 'ubuntu-16.04'
+
+strategy:
+  matrix:
+    postgres11_go_12:
+      go_version: 1.12
+      postgresService: pg11
+    postgres11_go_11:
+      go_version: 1.11
+      postgresService: pg11
+    postgres10_go_12:
+      go_version: 1.12
+      postgresService: pg10
+    postgres10_go_11:
+      go_version: 1.11
+      postgresService: pg10
+    postgres96_go_12:
+      go_version: 1.12
+      postgresService: pg96
+    postgres96_go_11:
+      go_version: 1.11
+      postgresService: pg96
 
 variables:
   GOBIN:  '$(GOPATH)/bin' # Go binaries path
@@ -22,10 +46,18 @@ variables:
   GOPATH: '$(system.defaultWorkingDirectory)/gopath' # Go workspace path
   modulePath: '$(GOPATH)/src/github.com/$(build.repository.name)' # Path to the module's code
 
+services:
+  postgres: $[ variables['postgresService'] ]
 steps:
 - task: GoTool@0
   inputs:
     version: '$(go_version)'
+
+- script: |
+    sudo apt install -y postgresql-client
+    psql --host=localhost --username=postgres --command="SELECT 1;"
+    psql --host=localhost --username=postgres --command="create database xmigrate_test;"
+    psql -f testdata/sql/02_create_schema.sql --host=localhost --username=postgres -d xmigrate_test
 
 - script: |
     mkdir -p '$(GOBIN)'
@@ -46,10 +78,9 @@ steps:
         dep ensure
     fi
   workingDirectory: '$(modulePath)'
-  displayName: 'Get dependencies, and the test'
+  displayName: 'Get dependencies'
 
 - script: |
     go test -race -coverprofile=coverage.txt -covermode=atomic ./...
   workingDirectory: '$(modulePath)'
   displayName: 'Run test'
-
