@@ -8,10 +8,6 @@ trigger:
 
 resources:
   containers:
-    - container: pg96
-      image: postgres:9.6
-    - container: pg10
-      image: postgres:10
     - container: pg11
       image: postgres:11
 
