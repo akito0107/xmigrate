@@ -1,7 +1,5 @@
 resources:
   containers:
-  - container: my_container
-    image: ubuntu:16.04
   - container: pg11
     image: postgres:11
   - container: pg10
@@ -17,7 +15,6 @@ strategy:
     postgres10:
       postgresService: pg10
 
-container: my_container
 
 services:
   postgres: $[ variables['postgresService'] ]
