@@ -6,12 +6,21 @@
 trigger:
 - master
 
+resources:
+  containers:
+    - container: pg96
+      image: postgres:9.6
+    - container: pg10
+      image: postgres:10
+    - container: pg11
+      image: postgres:11
+
 strategy:
   matrix:
-    go_11:
-      go_version: 1.11
     go_12:
       go_version: 1.12
+    postgres11:
+      postgresService: pg11
 
 pool:
   vmImage: 'ubuntu-latest'
@@ -22,10 +31,19 @@ variables:
   GOPATH: '$(system.defaultWorkingDirectory)/gopath' # Go workspace path
   modulePath: '$(GOPATH)/src/github.com/$(build.repository.name)' # Path to the module's code
 
+services:
+  postgres: $[ variables['postgresService'] ]
+
 steps:
 - task: GoTool@0
   inputs:
     version: '$(go_version)'
+
+- script: |
+    apt install -y postgresql-client
+    psql --host=postgres --username=postgres --command="SELECT 1;"
+    psql --host=postgres --username=postgres --command="create table xmigrate_test;"
+    psql -f testdata/sql/02_create_schema.sql --host=postgres --username=postgres -d xmigrate_test
 
 - script: |
     mkdir -p '$(GOBIN)'
@@ -47,13 +65,6 @@ steps:
     fi
   workingDirectory: '$(modulePath)'
   displayName: 'Get dependencies'
-
-- task: DockerCompose@0
-  displayName: Run a Docker Compose
-  inputs:
-    dockerComposeFile: testdata/docker-compose.yaml
-    action: Run a Docker Compose command
-    dockerComposeCommand: up
 
 - script: |
     go test -race -coverprofile=coverage.txt -covermode=atomic ./...

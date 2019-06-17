@@ -20,7 +20,7 @@ type PGConf struct {
 	DBName     string `env:"DB_NAME"`
 	DBHost     string `env:"DB_HOST"`
 	DBPort     string `env:"DB_PORT"`
-	DBPassword string `env:"DB_PASSWORD"`
+	DBPassword string `env:"DB_PASSWORD,allow-empty"`
 	UserName   string `env:"DB_USER_NAME"`
 	SSLMode    bool   `env:"DB_SSL_MODE,allow-empty"`
 }

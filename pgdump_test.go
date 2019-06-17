@@ -11,9 +11,8 @@ func TestPGDump_DumpHelpers(t *testing.T) {
 
 	conf := &PGConf{
 		DBName:     "xmigrate_test",
-		DBHost:     "127.0.0.1",
+		DBHost:     "postgres",
 		DBPort:     "5432",
-		DBPassword: "passw0rd",
 		UserName:   "postgres",
 	}
 
