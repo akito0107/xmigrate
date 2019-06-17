@@ -1,24 +1,80 @@
+trigger:
+- master
+
 resources:
   containers:
   - container: pg11
     image: postgres:11
   - container: pg10
     image: postgres:10
+  - container: pg96
+    image: postgres:9.6
 
 pool:
   vmImage: 'ubuntu-16.04'
 
 strategy:
   matrix:
-    postgres11:
+    postgres11_go_12:
+      go_version: 1.12
       postgresService: pg11
-    postgres10:
+    postgres11_go_11:
+      go_version: 1.11
+      postgresService: pg11
+    postgres10_go_12:
+      go_version: 1.12
       postgresService: pg10
+    postgres10_go_11:
+      go_version: 1.11
+      postgresService: pg10
+    postgres96_go_12:
+      go_version: 1.12
+      postgresService: pg96
+    postgres96_go_11:
+      go_version: 1.11
+      postgresService: pg96
 
+variables:
+  GOBIN:  '$(GOPATH)/bin' # Go binaries path
+  GOROOT: '/usr/local/go/$(go_version)' # Go installation path
+  GOPATH: '$(system.defaultWorkingDirectory)/gopath' # Go workspace path
+  modulePath: '$(GOPATH)/src/github.com/$(build.repository.name)' # Path to the module's code
 
 services:
   postgres: $[ variables['postgresService'] ]
 steps:
-  - script: |
-      apt install -y postgresql-client
-      psql --host=postgres --username=postgres --command="SELECT 1;"
+- task: GoTool@0
+  inputs:
+    version: '$(go_version)'
+
+- script: |
+    apt install -y postgresql-client
+    psql --host=postgres --username=postgres --command="SELECT 1;"
+    psql --host=postgres --username=postgres --command="create table xmigrate_test;"
+    psql -f testdata/sql/02_create_schema.sql --host=postgres --username=postgres -d xmigrate_test
+
+- script: |
+    mkdir -p '$(GOBIN)'
+    mkdir -p '$(GOPATH)/pkg'
+    mkdir -p '$(modulePath)'
+    shopt -s extglob
+    shopt -s dotglob
+    mv !(gopath) '$(modulePath)'
+    echo '##vso[task.prependpath]$(GOBIN)'
+    echo '##vso[task.prependpath]$(GOROOT)/bin'
+  displayName: 'Set up the Go workspace'
+
+- script: |
+    go version
+    go get -v -t -d ./...
+    if [ -f Gopkg.toml ]; then
+        curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+        dep ensure
+    fi
+  workingDirectory: '$(modulePath)'
+  displayName: 'Get dependencies'
+
+- script: |
+    go test -race -coverprofile=coverage.txt -covermode=atomic ./...
+  workingDirectory: '$(modulePath)'
+  displayName: 'Run test'
