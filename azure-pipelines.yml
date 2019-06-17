@@ -8,7 +8,8 @@ trigger:
 
 resources:
   containers:
-    - container: pg96
+    - 
+      container: pg96
       image: postgres:9.6.10
 
 strategy:
@@ -19,7 +20,7 @@ strategy:
       postgresService: pg96
 
 pool:
-  vmImage: 'ubuntu-latest'
+  vmImage: 'ubuntu-16.04'
 
 variables:
   GOBIN:  '$(GOPATH)/bin' # Go binaries path
