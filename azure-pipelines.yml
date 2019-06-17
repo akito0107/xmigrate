@@ -10,7 +10,7 @@ resources:
   containers:
     - 
       container: pg96
-      image: postgres:9.6.10
+      image: postgres:9.6
 
 strategy:
   matrix:
