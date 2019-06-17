@@ -52,7 +52,7 @@ steps:
     version: '$(go_version)'
 
 - script: |
-    sudo apt install -y postgresql-client
+    apt install -y postgresql-client
     psql --host=postgres --username=postgres --command="SELECT 1;"
     psql --host=postgres --username=postgres --command="create table xmigrate_test;"
     psql -f testdata/sql/02_create_schema.sql --host=postgres --username=postgres -d xmigrate_test
