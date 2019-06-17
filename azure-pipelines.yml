@@ -56,7 +56,7 @@ steps:
 - script: |
     sudo apt install -y postgresql-client
     psql --host=localhost --username=postgres --command="SELECT 1;"
-    psql --host=localhost --username=postgres --command="create table xmigrate_test;"
+    psql --host=localhost --username=postgres --command="create database xmigrate_test;"
     psql -f testdata/sql/02_create_schema.sql --host=localhost --username=postgres -d xmigrate_test
 
 - script: |
