@@ -3,6 +3,8 @@ trigger:
 
 resources:
   containers:
+  - container: runner
+    image: ubuntu:16.04
   - container: pg11
     image: postgres:11
   - container: pg10
@@ -12,6 +14,8 @@ resources:
 
 pool:
   vmImage: 'ubuntu-16.04'
+
+container: runner
 
 strategy:
   matrix:
