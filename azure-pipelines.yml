@@ -55,9 +55,9 @@ steps:
 
 - script: |
     sudo apt install -y postgresql-client
-    psql --host=postgres --username=postgres --command="SELECT 1;"
-    psql --host=postgres --username=postgres --command="create table xmigrate_test;"
-    psql -f testdata/sql/02_create_schema.sql --host=postgres --username=postgres -d xmigrate_test
+    psql --host=localhost --username=postgres --command="SELECT 1;"
+    psql --host=localhost --username=postgres --command="create table xmigrate_test;"
+    psql -f testdata/sql/02_create_schema.sql --host=localhost --username=postgres -d xmigrate_test
 
 - script: |
     mkdir -p '$(GOBIN)'
