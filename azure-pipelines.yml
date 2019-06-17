@@ -8,15 +8,15 @@ trigger:
 
 resources:
   containers:
-    - container: pg11
-      image: postgres:11
+    - container: pg96
+      image: postgres:9.6.10
 
 strategy:
   matrix:
     go_12:
       go_version: 1.12
-    postgres11:
-      postgresService: pg11
+    postgres96:
+      postgresService: pg96
 
 pool:
   vmImage: 'ubuntu-latest'
