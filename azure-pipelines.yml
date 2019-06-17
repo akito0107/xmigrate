@@ -10,6 +10,8 @@ resources:
   containers:
     - container: pg10
       image: postgres:10
+    - container: pg11
+      image: postgres:11
 
 strategy:
   matrix:
@@ -17,6 +19,8 @@ strategy:
       go_version: 1.12
     postgres10:
       postgresService: pg10
+    postgres11:
+      postgresService: pg11
 
 pool:
   vmImage: 'ubuntu-16.04'
