@@ -2,6 +2,9 @@
 
 Schema first DB migration tool for PostgreSQL.
 
+[![Build Status](https://dev.azure.com/akito01070362/xmigrate/_apis/build/status/akito0107.xmigrate?branchName=master)](https://dev.azure.com/akito01070362/xmigrate/_build/latest?definitionId=3&branchName=master)
+[![Go Report Card](https://goreportcard.com/badge/github.com/akito0107/xmigrate)](https://goreportcard.com/report/github.com/akito0107/xmigrate)
+[![codecov](https://codecov.io/gh/akito0107/xmigrate/branch/master/graph/badge.svg)](https://codecov.io/gh/akito0107/xmigrate)
 
 ## Getting Started
 
