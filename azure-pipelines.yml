@@ -84,3 +84,8 @@ steps:
     go test -race -coverprofile=coverage.txt -covermode=atomic ./...
   workingDirectory: '$(modulePath)'
   displayName: 'Run test'
+
+- script: |
+    bash <(curl -s https://codecov.io/bash)
+  workingDirectory: '$(modulePath)'
+  displayName: 'upload coverage'
