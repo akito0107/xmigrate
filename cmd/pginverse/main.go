@@ -3,17 +3,14 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"log"
 	"os"
-	"time"
 
+	"github.com/akito0107/xsqlparser"
+	"github.com/akito0107/xsqlparser/dialect"
 	"github.com/urfave/cli"
 	"github.com/xo/dburl"
-
-	"github.com/akito0107/xmigrate"
-	"github.com/akito0107/xmigrate/cmd"
 )
 
 func main() {
@@ -47,56 +44,44 @@ func main() {
 func diffAction(c *cli.Context, u *dburl.URL) error {
 	ctx := context.Background()
 
-	schemapath := c.String("schema")
+	insrc := c.GlobalString("in")
+	outsrc := c.GlobalString("out")
 
-	diffs, current, err := cmd.GetDiff(ctx, schemapath, u)
+	var in io.Reader
 
-	preview := c.Bool("preview")
-	migdir := c.String("migrations")
-
-	for _, d := range diffs {
-		err = func() error {
-			var upout io.Writer
-			var downout io.Writer
-
-			if preview {
-				fmt.Println("diff between current and target state is...")
-				upout = os.Stdout
-				downout = os.Stdout
-			} else {
-				t := time.Now()
-				id := fmt.Sprintf("%d", t.UnixNano())
-
-				upf, err := os.Create(fmt.Sprintf("%s/%s.up.sql", migdir, id))
-				if err != nil {
-					return err
-				}
-				defer upf.Close()
-				upout = upf
-
-				downf, err := os.Create(fmt.Sprintf("%s/%s.down.sql", migdir, id))
-				if err != nil {
-					return err
-				}
-				defer downf.Close()
-				downout = downf
-			}
-
-			fmt.Fprintln(upout, d.Spec.ToSQLString())
-			inv, err := xmigrate.Inverse(d, current)
-			if err != nil {
-				return err
-			}
-			if preview {
-				fmt.Println("inverse: ")
-			}
-			fmt.Fprintln(downout, inv.Spec.ToSQLString())
-
-			return nil
-		}()
+	if insrc == "stdin" {
+		in = os.Stdin
+	} else {
+		f, err := os.Open(insrc)
 		if err != nil {
 			return err
 		}
+		defer f.Close()
+		in = f
 	}
+
+	var out io.Writer
+
+	if outsrc == "stdout" {
+		out = os.Stdout
+	} else {
+		f, err := os.Open(outsrc)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		out = f
+	}
+
+	parser, err := xsqlparser.NewParser(in, &dialect.PostgresqlDialect{})
+	if err != nil {
+		return err
+	}
+
+	stmts, err := parser.ParseSQL()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }

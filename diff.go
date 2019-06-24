@@ -154,12 +154,53 @@ func DSLToDiff(stmts []sqlast.SQLStmt) ([]*SchemaDiff, error) {
 				case *sqlast.SetDefaultColumnAction:
 					diff = append(diff, &SchemaDiff{
 						Type: EditColumn,
-						Spec: &EditColumnSpec{},
+						Spec: &EditColumnSpec{
+							Type:       SetDefault,
+							TableName:  st.TableName.ToSQLString(),
+							ColumnName: al.ColumnName.ToSQLString(),
+							SQL:        st,
+						},
 					})
 				case *sqlast.DropDefaultColumnAction:
+					diff = append(diff, &SchemaDiff{
+						Type: EditColumn,
+						Spec: &EditColumnSpec{
+							Type:       DropDefault,
+							TableName:  st.TableName.ToSQLString(),
+							ColumnName: al.ColumnName.ToSQLString(),
+							SQL:        st,
+						},
+					})
 				case *sqlast.PGAlterDataTypeColumnAction:
+					diff = append(diff, &SchemaDiff{
+						Type: EditColumn,
+						Spec: &EditColumnSpec{
+							Type:       EditType,
+							TableName:  st.TableName.ToSQLString(),
+							ColumnName: al.ColumnName.ToSQLString(),
+							SQL:        st,
+						},
+					})
 				case *sqlast.PGDropNotNullColumnAction:
+					diff = append(diff, &SchemaDiff{
+						Type: EditColumn,
+						Spec: &EditColumnSpec{
+							Type:       DropNotNull,
+							TableName:  st.TableName.ToSQLString(),
+							ColumnName: al.ColumnName.ToSQLString(),
+							SQL:        st,
+						},
+					})
 				case *sqlast.PGSetNotNullColumnAction:
+					diff = append(diff, &SchemaDiff{
+						Type: EditColumn,
+						Spec: &EditColumnSpec{
+							Type:       SetNotNull,
+							TableName:  st.TableName.ToSQLString(),
+							ColumnName: al.ColumnName.ToSQLString(),
+							SQL:        st,
+						},
+					})
 				}
 			default:
 				return nil, errors.Errorf("%s is not supported", al.ToSQLString())
