@@ -440,6 +440,47 @@ func computeColumnDiff(tableName string, targ *sqlast.SQLColumnDef, current *sql
 		})
 	}
 
+	tdef := hasDefaultClause(targ)
+	cdef := hasDefaultClause(current)
+
+	if tdef && !cdef {
+		sql := &sqlast.SQLAlterTable{
+			TableName: sqlast.NewSQLObjectName(tableName),
+			Action: &sqlast.AlterColumnTableAction{
+				ColumnName: targ.Name,
+				Action: &sqlast.SetDefaultColumnAction{
+					Default: targ.Default,
+				},
+			},
+		}
+		diffs = append(diffs, &SchemaDiff{
+			Type: EditColumn,
+			Spec: &EditColumnSpec{
+				TableName:  tableName,
+				Type:       SetDefault,
+				ColumnName: targ.Name.ToSQLString(),
+				SQL:        sql,
+			},
+		})
+	} else if !tdef && cdef {
+		sql := &sqlast.SQLAlterTable{
+			TableName: sqlast.NewSQLObjectName(tableName),
+			Action: &sqlast.AlterColumnTableAction{
+				ColumnName: targ.Name,
+				Action:     &sqlast.DropDefaultColumnAction{},
+			},
+		}
+		diffs = append(diffs, &SchemaDiff{
+			Type: EditColumn,
+			Spec: &EditColumnSpec{
+				TableName:  tableName,
+				Type:       DropDefault,
+				ColumnName: targ.Name.ToSQLString(),
+				SQL:        sql,
+			},
+		})
+	}
+
 	if len(diffs) > 0 {
 		return true, diffs, nil
 	}
@@ -457,4 +498,8 @@ func hasNotNullConstraint(def *sqlast.SQLColumnDef) bool {
 		}
 	}
 	return false
+}
+
+func hasDefaultClause(def *sqlast.SQLColumnDef) bool {
+	return def.Default != nil
 }

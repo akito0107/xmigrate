@@ -174,20 +174,44 @@ create table test2(id int primary key);
 		},
 		{
 			name:    "edit column (set default)",
-			target:  "create table test1(id int primary key default 1, name varchar);",
+			target:  "create table test1(id int primary key default 1, name varchar not null);",
 			current: "create table test1(id int primary key, name varchar not null);",
 			expect: []*SchemaDiff{
 				{
 					Type: EditColumn,
 					Spec: &EditColumnSpec{
-						Type:       DropNotNull,
+						Type:       SetDefault,
 						TableName:  "test1",
-						ColumnName: "name",
+						ColumnName: "id",
 						SQL: &sqlast.SQLAlterTable{
 							TableName: sqlast.NewSQLObjectName("test1"),
 							Action: &sqlast.AlterColumnTableAction{
-								ColumnName: sqlast.NewSQLIdent("name"),
-								Action:     &sqlast.PGDropNotNullColumnAction{},
+								ColumnName: sqlast.NewSQLIdent("id"),
+								Action: &sqlast.SetDefaultColumnAction{
+									Default: sqlast.NewLongValue(1),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:    "edit column (drop default)",
+			target:  "create table test1(id int primary key, name varchar not null);",
+			current: "create table test1(id int primary key default 1, name varchar not null);",
+			expect: []*SchemaDiff{
+				{
+					Type: EditColumn,
+					Spec: &EditColumnSpec{
+						Type:       DropDefault,
+						TableName:  "test1",
+						ColumnName: "id",
+						SQL: &sqlast.SQLAlterTable{
+							TableName: sqlast.NewSQLObjectName("test1"),
+							Action: &sqlast.AlterColumnTableAction{
+								ColumnName: sqlast.NewSQLIdent("id"),
+								Action:     &sqlast.DropDefaultColumnAction{},
 							},
 						},
 					},
