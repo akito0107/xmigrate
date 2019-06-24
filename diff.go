@@ -96,6 +96,83 @@ func Diff(targ []*sqlast.SQLCreateTable, currentTable []*TableDef) ([]*SchemaDif
 	return diffs, nil
 }
 
+func DSLToDiff(stmts []sqlast.SQLStmt) ([]*SchemaDiff, error) {
+	var diff []*SchemaDiff
+	for _, stmt := range stmts {
+		switch st := stmt.(type) {
+		case *sqlast.SQLCreateTable:
+			diff = append(diff, &SchemaDiff{
+				Type: AddTable,
+				Spec: &AddTableSpec{
+					SQL: st,
+				},
+			})
+		case *sqlast.SQLDropTable:
+			diff = append(diff, &SchemaDiff{
+				Type: DropTable,
+				Spec: &DropTableSpec{
+					// TODO: allow multiple table names
+					TableName: st.TableNames[0].ToSQLString(),
+				},
+			})
+		case *sqlast.SQLAlterTable:
+			switch al := (st.Action).(type) {
+			case *sqlast.AddColumnTableAction:
+				diff = append(diff, &SchemaDiff{
+					Type: AddColumn,
+					Spec: &AddColumnSpec{
+						TableName: st.TableName.ToSQLString(),
+						ColumnDef: al.Column,
+					},
+				})
+			case *sqlast.RemoveColumnTableAction:
+				diff = append(diff, &SchemaDiff{
+					Type: DropColumn,
+					Spec: &DropColumnSpec{
+						TableName:  st.TableName.ToSQLString(),
+						ColumnName: al.Name.ToSQLString(),
+					},
+				})
+			case *sqlast.AddConstraintTableAction:
+				diff = append(diff, &SchemaDiff{
+					Type: AddTableConstraint,
+					Spec: &AddTableConstraintSpec{
+						TableName:     st.TableName.ToSQLString(),
+						ConstraintDef: al.Constraint,
+					},
+				})
+			case *sqlast.DropConstraintTableAction:
+				diff = append(diff, &SchemaDiff{
+					Type: DropTableConstraint,
+					Spec: &DropTableConstraintSpec{
+						TableName:       st.TableName.ToSQLString(),
+						ConstraintsName: al.Name.ToSQLString(),
+					},
+				})
+			case *sqlast.AlterColumnTableAction:
+				switch al.Action.(type) {
+				case *sqlast.SetDefaultColumnAction:
+					diff = append(diff, &SchemaDiff{
+						Type: EditColumn,
+						Spec: &EditColumnSpec{},
+					})
+				case *sqlast.DropDefaultColumnAction:
+				case *sqlast.PGAlterDataTypeColumnAction:
+				case *sqlast.PGDropNotNullColumnAction:
+				case *sqlast.PGSetNotNullColumnAction:
+				}
+			default:
+				return nil, errors.Errorf("%s is not supported", al.ToSQLString())
+			}
+		default:
+			return nil, errors.Errorf("%s is not supported", stmt.ToSQLString())
+		}
+
+	}
+
+	return diff, nil
+}
+
 type DiffSpec interface {
 	ToSQLString() string
 }
@@ -271,6 +348,8 @@ const (
 	EditType EditColumnType = iota
 	SetNotNull
 	DropNotNull
+	SetDefault
+	DropDefault
 )
 
 type EditColumnSpec struct {
