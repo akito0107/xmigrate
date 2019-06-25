@@ -13,6 +13,7 @@ import (
 	"github.com/akito0107/xsqlparser/sqlast"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
+	"github.com/xo/dburl"
 	errors "golang.org/x/xerrors"
 )
 
@@ -44,6 +45,15 @@ func NewPGDump(conf *PGConf) *PGDump {
 	db, err := sqlx.Connect("postgres", src)
 	if err != nil {
 		log.Fatalf("connect failed with src: %s, err: %+v", src, err)
+	}
+
+	return &PGDump{db: db}
+}
+
+func NewPGDumpFromURL(dburl *dburl.URL) *PGDump {
+	db, err := sqlx.Connect(dburl.Driver, dburl.DSN)
+	if err != nil {
+		log.Fatalf("connect failed with src: %s, err: %+v", dburl.URL.String(), err)
 	}
 
 	return &PGDump{db: db}

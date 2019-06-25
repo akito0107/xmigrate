@@ -3,7 +3,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:9a60937c577c78b61be29ab886d88dab974ce605dab505e444bf30b9201710e9"
+  digest = "1:c8dc26ae09d756c2869d598a0af98c2a0e0ae00fab0c9cd85ba189f7268baf78"
   name = "github.com/akito0107/xsqlparser"
   packages = [
     ".",
@@ -11,7 +11,7 @@
     "sqlast",
   ]
   pruneopts = "UT"
-  revision = "330a5e0377319f7981da53c127d490e875e874e2"
+  revision = "f806a10df031ec30c12ad4bf384e9c0246d76aa7"
 
 [[projects]]
   digest = "1:bf40199583e5143d1472fc34d10d6f4b69d97572142acf343b3e43136da40823"
@@ -60,6 +60,14 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:cac263b8eb2e9ad2327b70e03be1de1227040bfb3be26b49c4b56cbed568afc7"
+  name = "github.com/xo/dburl"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "98997a05b24fc069c79fa13b05ccf376c22a326c"
+
+[[projects]]
+  branch = "master"
   digest = "1:c44a77760372a998be8d4656e8d3c865f68735ec4cad1743a245903a58f64249"
   name = "golang.org/x/xerrors"
   packages = [
@@ -80,6 +88,7 @@
     "github.com/jmoiron/sqlx",
     "github.com/lib/pq",
     "github.com/urfave/cli",
+    "github.com/xo/dburl",
     "golang.org/x/xerrors",
   ]
   solver-name = "gps-cdcl"

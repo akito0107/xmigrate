@@ -202,6 +202,112 @@ create table test2(id int primary key);`,
 				},
 			},
 		},
+		{
+			name:    "nullable",
+			current: `create table test1(id int primary key, name varchar);`,
+			diff: &SchemaDiff{
+				Type: EditColumn,
+				Spec: &EditColumnSpec{
+					Type:       SetNotNull,
+					TableName:  "test1",
+					ColumnName: "name",
+					SQL: &sqlast.SQLAlterTable{
+						TableName: sqlast.NewSQLObjectName("test1"),
+						Action: &sqlast.AlterColumnTableAction{
+							ColumnName: sqlast.NewSQLIdent("name"),
+							Action:     &sqlast.PGSetNotNullColumnAction{},
+						},
+					},
+				},
+			},
+			expect: &SchemaDiff{
+				Type: EditColumn,
+				Spec: &EditColumnSpec{
+					Type:       DropNotNull,
+					TableName:  "test1",
+					ColumnName: "name",
+					SQL: &sqlast.SQLAlterTable{
+						TableName: sqlast.NewSQLObjectName("test1"),
+						Action: &sqlast.AlterColumnTableAction{
+							ColumnName: sqlast.NewSQLIdent("name"),
+							Action:     &sqlast.PGDropNotNullColumnAction{},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:    "set default",
+			current: `create table test1(id int primary key, name varchar);`,
+			diff: &SchemaDiff{
+				Type: EditColumn,
+				Spec: &EditColumnSpec{
+					Type:       SetDefault,
+					TableName:  "test1",
+					ColumnName: "name",
+					SQL: &sqlast.SQLAlterTable{
+						TableName: sqlast.NewSQLObjectName("test1"),
+						Action: &sqlast.AlterColumnTableAction{
+							ColumnName: sqlast.NewSQLIdent("name"),
+							Action: &sqlast.SetDefaultColumnAction{
+								Default: sqlast.NewLongValue(1),
+							},
+						},
+					},
+				},
+			},
+			expect: &SchemaDiff{
+				Type: EditColumn,
+				Spec: &EditColumnSpec{
+					Type:       DropDefault,
+					TableName:  "test1",
+					ColumnName: "name",
+					SQL: &sqlast.SQLAlterTable{
+						TableName: sqlast.NewSQLObjectName("test1"),
+						Action: &sqlast.AlterColumnTableAction{
+							ColumnName: sqlast.NewSQLIdent("name"),
+							Action:     &sqlast.DropDefaultColumnAction{},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:    "drop default",
+			current: `create table test1(id int primary key default 1, name varchar);`,
+			diff: &SchemaDiff{
+				Type: EditColumn,
+				Spec: &EditColumnSpec{
+					Type:       DropDefault,
+					TableName:  "test1",
+					ColumnName: "id",
+					SQL: &sqlast.SQLAlterTable{
+						TableName: sqlast.NewSQLObjectName("test1"),
+						Action: &sqlast.AlterColumnTableAction{
+							ColumnName: sqlast.NewSQLIdent("id"),
+							Action:     &sqlast.DropDefaultColumnAction{},
+						},
+					},
+				},
+			},
+			expect: &SchemaDiff{
+				Type: EditColumn,
+				Spec: &EditColumnSpec{
+					Type:       SetDefault,
+					TableName:  "test1",
+					ColumnName: "id",
+					SQL: &sqlast.SQLAlterTable{
+						TableName: sqlast.NewSQLObjectName("test1"),
+						Action: &sqlast.AlterColumnTableAction{
+							ColumnName: sqlast.NewSQLIdent("id"),
+							Action: &sqlast.SetDefaultColumnAction{
+								Default: sqlast.NewLongValue(1),
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, c := range cases {

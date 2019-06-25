@@ -96,6 +96,124 @@ func Diff(targ []*sqlast.SQLCreateTable, currentTable []*TableDef) ([]*SchemaDif
 	return diffs, nil
 }
 
+func DSLToDiff(stmts []sqlast.SQLStmt) ([]*SchemaDiff, error) {
+	var diff []*SchemaDiff
+	for _, stmt := range stmts {
+		switch st := stmt.(type) {
+		case *sqlast.SQLCreateTable:
+			diff = append(diff, &SchemaDiff{
+				Type: AddTable,
+				Spec: &AddTableSpec{
+					SQL: st,
+				},
+			})
+		case *sqlast.SQLDropTable:
+			diff = append(diff, &SchemaDiff{
+				Type: DropTable,
+				Spec: &DropTableSpec{
+					// TODO: allow multiple table names
+					TableName: st.TableNames[0].ToSQLString(),
+				},
+			})
+		case *sqlast.SQLAlterTable:
+			switch al := (st.Action).(type) {
+			case *sqlast.AddColumnTableAction:
+				diff = append(diff, &SchemaDiff{
+					Type: AddColumn,
+					Spec: &AddColumnSpec{
+						TableName: st.TableName.ToSQLString(),
+						ColumnDef: al.Column,
+					},
+				})
+			case *sqlast.RemoveColumnTableAction:
+				diff = append(diff, &SchemaDiff{
+					Type: DropColumn,
+					Spec: &DropColumnSpec{
+						TableName:  st.TableName.ToSQLString(),
+						ColumnName: al.Name.ToSQLString(),
+					},
+				})
+			case *sqlast.AddConstraintTableAction:
+				diff = append(diff, &SchemaDiff{
+					Type: AddTableConstraint,
+					Spec: &AddTableConstraintSpec{
+						TableName:     st.TableName.ToSQLString(),
+						ConstraintDef: al.Constraint,
+					},
+				})
+			case *sqlast.DropConstraintTableAction:
+				diff = append(diff, &SchemaDiff{
+					Type: DropTableConstraint,
+					Spec: &DropTableConstraintSpec{
+						TableName:       st.TableName.ToSQLString(),
+						ConstraintsName: al.Name.ToSQLString(),
+					},
+				})
+			case *sqlast.AlterColumnTableAction:
+				switch al.Action.(type) {
+				case *sqlast.SetDefaultColumnAction:
+					diff = append(diff, &SchemaDiff{
+						Type: EditColumn,
+						Spec: &EditColumnSpec{
+							Type:       SetDefault,
+							TableName:  st.TableName.ToSQLString(),
+							ColumnName: al.ColumnName.ToSQLString(),
+							SQL:        st,
+						},
+					})
+				case *sqlast.DropDefaultColumnAction:
+					diff = append(diff, &SchemaDiff{
+						Type: EditColumn,
+						Spec: &EditColumnSpec{
+							Type:       DropDefault,
+							TableName:  st.TableName.ToSQLString(),
+							ColumnName: al.ColumnName.ToSQLString(),
+							SQL:        st,
+						},
+					})
+				case *sqlast.PGAlterDataTypeColumnAction:
+					diff = append(diff, &SchemaDiff{
+						Type: EditColumn,
+						Spec: &EditColumnSpec{
+							Type:       EditType,
+							TableName:  st.TableName.ToSQLString(),
+							ColumnName: al.ColumnName.ToSQLString(),
+							SQL:        st,
+						},
+					})
+				case *sqlast.PGDropNotNullColumnAction:
+					diff = append(diff, &SchemaDiff{
+						Type: EditColumn,
+						Spec: &EditColumnSpec{
+							Type:       DropNotNull,
+							TableName:  st.TableName.ToSQLString(),
+							ColumnName: al.ColumnName.ToSQLString(),
+							SQL:        st,
+						},
+					})
+				case *sqlast.PGSetNotNullColumnAction:
+					diff = append(diff, &SchemaDiff{
+						Type: EditColumn,
+						Spec: &EditColumnSpec{
+							Type:       SetNotNull,
+							TableName:  st.TableName.ToSQLString(),
+							ColumnName: al.ColumnName.ToSQLString(),
+							SQL:        st,
+						},
+					})
+				}
+			default:
+				return nil, errors.Errorf("%s is not supported", al.ToSQLString())
+			}
+		default:
+			return nil, errors.Errorf("%s is not supported", stmt.ToSQLString())
+		}
+
+	}
+
+	return diff, nil
+}
+
 type DiffSpec interface {
 	ToSQLString() string
 }
@@ -271,6 +389,8 @@ const (
 	EditType EditColumnType = iota
 	SetNotNull
 	DropNotNull
+	SetDefault
+	DropDefault
 )
 
 type EditColumnSpec struct {
@@ -361,6 +481,47 @@ func computeColumnDiff(tableName string, targ *sqlast.SQLColumnDef, current *sql
 		})
 	}
 
+	tdef := hasDefaultClause(targ)
+	cdef := hasDefaultClause(current)
+
+	if tdef && !cdef {
+		sql := &sqlast.SQLAlterTable{
+			TableName: sqlast.NewSQLObjectName(tableName),
+			Action: &sqlast.AlterColumnTableAction{
+				ColumnName: targ.Name,
+				Action: &sqlast.SetDefaultColumnAction{
+					Default: targ.Default,
+				},
+			},
+		}
+		diffs = append(diffs, &SchemaDiff{
+			Type: EditColumn,
+			Spec: &EditColumnSpec{
+				TableName:  tableName,
+				Type:       SetDefault,
+				ColumnName: targ.Name.ToSQLString(),
+				SQL:        sql,
+			},
+		})
+	} else if !tdef && cdef {
+		sql := &sqlast.SQLAlterTable{
+			TableName: sqlast.NewSQLObjectName(tableName),
+			Action: &sqlast.AlterColumnTableAction{
+				ColumnName: targ.Name,
+				Action:     &sqlast.DropDefaultColumnAction{},
+			},
+		}
+		diffs = append(diffs, &SchemaDiff{
+			Type: EditColumn,
+			Spec: &EditColumnSpec{
+				TableName:  tableName,
+				Type:       DropDefault,
+				ColumnName: targ.Name.ToSQLString(),
+				SQL:        sql,
+			},
+		})
+	}
+
 	if len(diffs) > 0 {
 		return true, diffs, nil
 	}
@@ -378,4 +539,8 @@ func hasNotNullConstraint(def *sqlast.SQLColumnDef) bool {
 		}
 	}
 	return false
+}
+
+func hasDefaultClause(def *sqlast.SQLColumnDef) bool {
+	return def.Default != nil
 }
