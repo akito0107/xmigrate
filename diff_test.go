@@ -317,9 +317,8 @@ func TestDSLToDiff(t *testing.T) {
 			},
 		},
 		{
-			name:    "edit column (change type)",
-			target:  "create table test1(id int primary key, name varchar);",
-			current: "create table test1(id int primary key, name int);",
+			name: "edit column (change type)",
+			dsl:  "ALTER TABLE test1 ALTER COLUMN name TYPE varchar",
 			expect: []*SchemaDiff{
 				{
 					Type: EditColumn,
@@ -341,31 +340,8 @@ func TestDSLToDiff(t *testing.T) {
 			},
 		},
 		{
-			name:    "edit column (not null)",
-			target:  "create table test1(id int primary key, name varchar not null);",
-			current: "create table test1(id int primary key, name varchar);",
-			expect: []*SchemaDiff{
-				{
-					Type: EditColumn,
-					Spec: &EditColumnSpec{
-						Type:       SetNotNull,
-						TableName:  "test1",
-						ColumnName: "name",
-						SQL: &sqlast.SQLAlterTable{
-							TableName: sqlast.NewSQLObjectName("test1"),
-							Action: &sqlast.AlterColumnTableAction{
-								ColumnName: sqlast.NewSQLIdent("name"),
-								Action:     &sqlast.PGSetNotNullColumnAction{},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name:    "edit column (nullable)",
-			target:  "create table test1(id int primary key, name varchar);",
-			current: "create table test1(id int primary key, name varchar not null);",
+			name: "edit column (not null)",
+			dsl:  "ALTER TABLE test1 ALTER COLUMN name DROP NOT NULL",
 			expect: []*SchemaDiff{
 				{
 					Type: EditColumn,
@@ -385,9 +361,29 @@ func TestDSLToDiff(t *testing.T) {
 			},
 		},
 		{
-			name:    "edit column (set default)",
-			target:  "create table test1(id int primary key default 1, name varchar not null);",
-			current: "create table test1(id int primary key, name varchar not null);",
+			name: "edit column (nullable)",
+			dsl:  "ALTER TABLE test1 ALTER COLUMN name SET NOT NULL",
+			expect: []*SchemaDiff{
+				{
+					Type: EditColumn,
+					Spec: &EditColumnSpec{
+						Type:       SetNotNull,
+						TableName:  "test1",
+						ColumnName: "name",
+						SQL: &sqlast.SQLAlterTable{
+							TableName: sqlast.NewSQLObjectName("test1"),
+							Action: &sqlast.AlterColumnTableAction{
+								ColumnName: sqlast.NewSQLIdent("name"),
+								Action:     &sqlast.PGSetNotNullColumnAction{},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "edit column (set default)",
+			dsl:  "ALTER TABLE test1 ALTER COLUMN id SET DEFAULT 1",
 			expect: []*SchemaDiff{
 				{
 					Type: EditColumn,
@@ -409,9 +405,8 @@ func TestDSLToDiff(t *testing.T) {
 			},
 		},
 		{
-			name:    "edit column (drop default)",
-			target:  "create table test1(id int primary key, name varchar not null);",
-			current: "create table test1(id int primary key default 1, name varchar not null);",
+			name: "edit column (drop default)",
+			dsl:  "ALTER TABLE test1 ALTER COLUMN id DROP DEFAULT",
 			expect: []*SchemaDiff{
 				{
 					Type: EditColumn,
