@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -11,6 +12,8 @@ import (
 	"github.com/akito0107/xsqlparser/dialect"
 	"github.com/urfave/cli"
 	"github.com/xo/dburl"
+
+	"github.com/akito0107/xmigrate"
 )
 
 func main() {
@@ -37,7 +40,7 @@ func main() {
 	}
 
 	if err := app.Run(os.Args); err != nil {
-		log.Fatal(err)
+		log.Fatalf("%+v", err)
 	}
 }
 
@@ -81,6 +84,25 @@ func diffAction(c *cli.Context, u *dburl.URL) error {
 	stmts, err := parser.ParseSQL()
 	if err != nil {
 		return err
+	}
+
+	diffs, err := xmigrate.DSLToDiff(stmts)
+	if err != nil {
+		return err
+	}
+
+	dumper := xmigrate.NewPGDumpFromURL(u)
+	current, err := dumper.Dump(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, d := range diffs {
+		inv, err := xmigrate.Inverse(d, current)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(out, "%s\n", inv.Spec.ToSQLString())
 	}
 
 	return nil

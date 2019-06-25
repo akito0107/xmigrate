@@ -20,8 +20,8 @@ func main() {
 	app.Usage = "postgres db migration utility"
 	app.UsageText = "pgmigrate [db url] [OPTIONS]"
 	app.Flags = []cli.Flag{
-		cli.StringFlag{Name: "schemapath,f", Value: "schema.sql", Usage: "schema sql path"},
-		cli.BoolFlag{Name: "apply,a", Usage: "apply migration"},
+		cli.StringFlag{Name: "schemapath, f", Value: "schema.sql", Usage: "schema sql path"},
+		cli.BoolFlag{Name: "apply, a", Usage: "apply migration"},
 	}
 
 	app.Action = func(c *cli.Context) error {
@@ -45,7 +45,7 @@ func main() {
 func syncAction(c *cli.Context, u *dburl.URL) error {
 	ctx := context.Background()
 
-	schemapath := c.String("schema")
+	schemapath := c.String("schemapath")
 
 	diffs, _, err := cmd.GetDiff(ctx, schemapath, u)
 	if err != nil {

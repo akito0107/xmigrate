@@ -88,6 +88,43 @@ func Inverse(diff *SchemaDiff, currentTable []*TableDef) (*SchemaDiff, error) {
 					},
 				},
 			}, nil
+
+		case DropDefault:
+			t := getTable(spec.TableName, currentTable)
+			col := t.Columns[spec.ColumnName]
+			return &SchemaDiff{
+				Type: EditColumn,
+				Spec: &EditColumnSpec{
+					Type:       DropDefault,
+					TableName:  spec.TableName,
+					ColumnName: spec.ColumnName,
+					SQL: &sqlast.SQLAlterTable{
+						TableName: spec.SQL.TableName,
+						Action: &sqlast.AlterColumnTableAction{
+							ColumnName: sqlast.NewSQLIdent(spec.ColumnName),
+							Action: &sqlast.SetDefaultColumnAction{
+								Default: col.Default,
+							},
+						},
+					},
+				},
+			}, nil
+		case SetDefault:
+			return &SchemaDiff{
+				Type: EditColumn,
+				Spec: &EditColumnSpec{
+					Type:       SetDefault,
+					TableName:  spec.TableName,
+					ColumnName: spec.ColumnName,
+					SQL: &sqlast.SQLAlterTable{
+						TableName: spec.SQL.TableName,
+						Action: &sqlast.AlterColumnTableAction{
+							ColumnName: sqlast.NewSQLIdent(spec.ColumnName),
+							Action:     &sqlast.DropDefaultColumnAction{},
+						},
+					},
+				},
+			}, nil
 		case EditType:
 			t := getTable(spec.TableName, currentTable)
 			col := t.Columns[spec.ColumnName]
@@ -109,7 +146,7 @@ func Inverse(diff *SchemaDiff, currentTable []*TableDef) (*SchemaDiff, error) {
 				},
 			}, nil
 		default:
-			return nil, errors.Errorf("unknown spec %+v", diff)
+			return nil, errors.Errorf("unknown spec %s", diff.Spec.ToSQLString())
 		}
 
 	default:

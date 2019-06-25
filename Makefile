@@ -1,5 +1,5 @@
 .PHONY: build
-build: bin/xmigrate bin/pgmigrate
+build: bin/xmigrate bin/pgmigrate bin/pginverse
 
 .PHONY: bin/xmigrate
 bin/xmigrate: vendor
@@ -8,6 +8,10 @@ bin/xmigrate: vendor
 .PHONY: bin/pgmigrate
 bin/pgmigrate: vendor
 	go build -o bin/pgmigrate cmd/pgmigrate/main.go
+
+.PHONY: bin/pginverse
+bin/pginverse: vendor
+	go build -o bin/pginverse cmd/pginverse/main.go
 
 vendor: Gopkg.toml Gopkg.lock
 	dep ensure
