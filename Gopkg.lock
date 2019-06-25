@@ -14,6 +14,14 @@
   revision = "f806a10df031ec30c12ad4bf384e9c0246d76aa7"
 
 [[projects]]
+  digest = "1:e47d51dab652d26c3fba6f8cba403f922d02757a82abdc77e90df7948daf296e"
+  name = "github.com/deckarep/golang-set"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "cbaa98ba5575e67703b32b4b19f73c91f3c4159e"
+  version = "v1.7.1"
+
+[[projects]]
   digest = "1:bf40199583e5143d1472fc34d10d6f4b69d97572142acf343b3e43136da40823"
   name = "github.com/google/go-cmp"
   packages = [
@@ -84,6 +92,7 @@
     "github.com/akito0107/xsqlparser",
     "github.com/akito0107/xsqlparser/dialect",
     "github.com/akito0107/xsqlparser/sqlast",
+    "github.com/deckarep/golang-set",
     "github.com/google/go-cmp/cmp",
     "github.com/jmoiron/sqlx",
     "github.com/lib/pq",
