@@ -1,23 +1,16 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"log"
 	"os"
-	"sort"
-	"strings"
-	"time"
 
 	"github.com/akito0107/xsqlparser"
 	"github.com/akito0107/xsqlparser/dialect"
 	"github.com/akito0107/xsqlparser/sqlast"
 	"github.com/jmoiron/sqlx"
 	"github.com/urfave/cli"
-	errors "golang.org/x/xerrors"
 
 	"github.com/akito0107/xmigrate"
 )
@@ -38,19 +31,6 @@ func main() {
 	}
 
 	app.Commands = []cli.Command{
-		/*
-			{
-				Name:    "diff",
-				Aliases: []string{"d"},
-				Usage:   "check diff between current table and schema.sql",
-				Flags: []cli.Flag{
-					cli.StringFlag{Name: "schema,f", Value: "schema.sql", Usage: "target schema file path"},
-					cli.BoolFlag{Name: "preview"},
-					cli.StringFlag{Name: "migrations,m", Value: "migrations", Usage: "migrations file dir"},
-				},
-				Action: diffAction,
-			},
-		*/
 		{
 			Name: "sync",
 			Flags: []cli.Flag{
@@ -59,22 +39,6 @@ func main() {
 			},
 			Action: syncAction,
 		},
-		/*
-			{
-				Name: "new",
-				Flags: []cli.Flag{
-					cli.StringFlag{Name: "migrations,m", Value: "migrations", Usage: "migrations file dir"},
-				},
-				Action: newAction,
-			},
-			{
-				Name: "up",
-				Flags: []cli.Flag{
-					cli.StringFlag{Name: "migrations,m", Value: "migrations", Usage: "migrations file dir"},
-				},
-				Action: upAction,
-			},
-		*/
 	}
 
 	if err := app.Run(os.Args); err != nil {
@@ -139,64 +103,6 @@ func getDiff(ctx context.Context, schemapath string, conf *xmigrate.PGConf) ([]*
 
 }
 
-func diffAction(c *cli.Context) error {
-	ctx := context.Background()
-
-	conf := getConf(c)
-	schemapath := c.String("schema")
-
-	diffs, current, err := getDiff(ctx, schemapath, conf)
-
-	preview := c.Bool("preview")
-	migdir := c.String("migrations")
-
-	for _, d := range diffs {
-		err = func() error {
-			var upout io.Writer
-			var downout io.Writer
-
-			if preview {
-				fmt.Println("diff between current and target state is...")
-				upout = os.Stdout
-				downout = os.Stdout
-			} else {
-				t := time.Now()
-				id := fmt.Sprintf("%d", t.UnixNano())
-
-				upf, err := os.Create(fmt.Sprintf("%s/%s.up.sql", migdir, id))
-				if err != nil {
-					return err
-				}
-				defer upf.Close()
-				upout = upf
-
-				downf, err := os.Create(fmt.Sprintf("%s/%s.down.sql", migdir, id))
-				if err != nil {
-					return err
-				}
-				defer downf.Close()
-				downout = downf
-			}
-
-			fmt.Fprintln(upout, d.Spec.ToSQLString())
-			inv, err := xmigrate.Inverse(d, current)
-			if err != nil {
-				return err
-			}
-			if preview {
-				fmt.Println("inverse: ")
-			}
-			fmt.Fprintln(downout, inv.Spec.ToSQLString())
-
-			return nil
-		}()
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func syncAction(c *cli.Context) error {
 	ctx := context.Background()
 
@@ -230,108 +136,6 @@ func syncAction(c *cli.Context) error {
 			if _, err := db.Exec(sql); err != nil {
 				return err
 			}
-		}
-	}
-
-	return nil
-}
-
-func newAction(c *cli.Context) error {
-	migdir := c.String("migrations")
-
-	t := time.Now()
-	id := fmt.Sprintf("%d", t.UnixNano())
-
-	mes := "-- created by xmigrate"
-
-	upf, err := os.Create(fmt.Sprintf("%s/%s.up.sql", migdir, id))
-	if err != nil {
-		return err
-	}
-	defer upf.Close()
-	fmt.Fprintf(upf, mes)
-
-	downf, err := os.Create(fmt.Sprintf("%s/%s.down.sql", migdir, id))
-	if err != nil {
-		return err
-	}
-	defer downf.Close()
-	fmt.Fprintf(downf, mes)
-
-	return nil
-}
-
-func upAction(c *cli.Context) error {
-	conf := getConf(c)
-	ctx := context.Background()
-
-	migdir := c.String("migrations")
-
-	db, err := sqlx.Connect("postgres", conf.Src())
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
-	currentId, err := xmigrate.CheckCurrent(ctx, db)
-	if err != nil {
-		return err
-	}
-
-	files, err := ioutil.ReadDir(migdir)
-	if err != nil {
-		return err
-	}
-
-	var upmigrates []string
-
-	for _, f := range files {
-		if !strings.HasSuffix(f.Name(), ".up.sql") {
-			continue
-		}
-	}
-	sort.Strings(upmigrates)
-
-	cnt := 0
-	for i := 0; i < len(upmigrates); i++ {
-		timestamps := strings.Split(upmigrates[i], ".")
-		if len(timestamps) != 3 {
-			return errors.Errorf("unknown file format %s", upmigrates[i])
-		}
-		cnt = i
-
-		if timestamps[0] == currentId {
-			break
-		}
-	}
-
-	if cnt == len(upmigrates) {
-		fmt.Println("already upgraded")
-		return nil
-	}
-
-	for _, u := range upmigrates[cnt+1:] {
-		err := func() error {
-			f, err := os.Open(u)
-			if err != nil {
-				return err
-			}
-			defer f.Close()
-
-			var buf bytes.Buffer
-
-			if _, err := io.Copy(f, &buf); err != nil {
-				return err
-			}
-
-			fmt.Println("applying...")
-			fmt.Println(buf.String())
-
-			return nil
-		}()
-
-		if err != nil {
-			return errors.Errorf("migrate %s error: %w", u, err)
 		}
 	}
 

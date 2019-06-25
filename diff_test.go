@@ -237,6 +237,223 @@ create table test2(id int primary key);
 	}
 }
 
+func TestDSLToDiff(t *testing.T) {
+	cases := []struct {
+		name   string
+		dsl    string
+		expect []*SchemaDiff
+	}{
+		{
+			name: "add table",
+			dsl:  "create table test1(id int primary key);",
+			expect: []*SchemaDiff{
+				{
+					Type: AddTable,
+					Spec: &AddTableSpec{
+						SQL: &sqlast.SQLCreateTable{
+							Name: sqlast.NewSQLObjectName("test1"),
+							Elements: []sqlast.TableElement{
+								&sqlast.SQLColumnDef{
+									Name:     sqlast.NewSQLIdent("id"),
+									DataType: &sqlast.Int{},
+									Constraints: []*sqlast.ColumnConstraint{
+										{
+											Spec: &sqlast.UniqueColumnSpec{
+												IsPrimaryKey: true,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "drop table",
+			dsl:  "drop table test2;",
+			expect: []*SchemaDiff{
+				{
+					Type: DropTable,
+					Spec: &DropTableSpec{
+						TableName: "test2",
+					},
+				},
+			},
+		},
+		{
+			name: "add column",
+			dsl:  "ALTER TABLE test1 ADD COLUMN name varchar not null",
+			expect: []*SchemaDiff{
+				{
+					Type: AddColumn,
+					Spec: &AddColumnSpec{
+						TableName: "test1",
+						ColumnDef: &sqlast.SQLColumnDef{
+							Name:     sqlast.NewSQLIdent("name"),
+							DataType: &sqlast.VarcharType{},
+							Constraints: []*sqlast.ColumnConstraint{
+								{
+									Spec: &sqlast.NotNullColumnSpec{},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "drop column",
+			dsl:  "ALTER TABLE test1 DROP COLUMN name",
+			expect: []*SchemaDiff{
+				{
+					Type: DropColumn,
+					Spec: &DropColumnSpec{
+						TableName:  "test1",
+						ColumnName: "name",
+					},
+				},
+			},
+		},
+		{
+			name:    "edit column (change type)",
+			target:  "create table test1(id int primary key, name varchar);",
+			current: "create table test1(id int primary key, name int);",
+			expect: []*SchemaDiff{
+				{
+					Type: EditColumn,
+					Spec: &EditColumnSpec{
+						Type:       EditType,
+						TableName:  "test1",
+						ColumnName: "name",
+						SQL: &sqlast.SQLAlterTable{
+							TableName: sqlast.NewSQLObjectName("test1"),
+							Action: &sqlast.AlterColumnTableAction{
+								ColumnName: sqlast.NewSQLIdent("name"),
+								Action: &sqlast.PGAlterDataTypeColumnAction{
+									DataType: &sqlast.VarcharType{},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:    "edit column (not null)",
+			target:  "create table test1(id int primary key, name varchar not null);",
+			current: "create table test1(id int primary key, name varchar);",
+			expect: []*SchemaDiff{
+				{
+					Type: EditColumn,
+					Spec: &EditColumnSpec{
+						Type:       SetNotNull,
+						TableName:  "test1",
+						ColumnName: "name",
+						SQL: &sqlast.SQLAlterTable{
+							TableName: sqlast.NewSQLObjectName("test1"),
+							Action: &sqlast.AlterColumnTableAction{
+								ColumnName: sqlast.NewSQLIdent("name"),
+								Action:     &sqlast.PGSetNotNullColumnAction{},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:    "edit column (nullable)",
+			target:  "create table test1(id int primary key, name varchar);",
+			current: "create table test1(id int primary key, name varchar not null);",
+			expect: []*SchemaDiff{
+				{
+					Type: EditColumn,
+					Spec: &EditColumnSpec{
+						Type:       DropNotNull,
+						TableName:  "test1",
+						ColumnName: "name",
+						SQL: &sqlast.SQLAlterTable{
+							TableName: sqlast.NewSQLObjectName("test1"),
+							Action: &sqlast.AlterColumnTableAction{
+								ColumnName: sqlast.NewSQLIdent("name"),
+								Action:     &sqlast.PGDropNotNullColumnAction{},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:    "edit column (set default)",
+			target:  "create table test1(id int primary key default 1, name varchar not null);",
+			current: "create table test1(id int primary key, name varchar not null);",
+			expect: []*SchemaDiff{
+				{
+					Type: EditColumn,
+					Spec: &EditColumnSpec{
+						Type:       SetDefault,
+						TableName:  "test1",
+						ColumnName: "id",
+						SQL: &sqlast.SQLAlterTable{
+							TableName: sqlast.NewSQLObjectName("test1"),
+							Action: &sqlast.AlterColumnTableAction{
+								ColumnName: sqlast.NewSQLIdent("id"),
+								Action: &sqlast.SetDefaultColumnAction{
+									Default: sqlast.NewLongValue(1),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:    "edit column (drop default)",
+			target:  "create table test1(id int primary key, name varchar not null);",
+			current: "create table test1(id int primary key default 1, name varchar not null);",
+			expect: []*SchemaDiff{
+				{
+					Type: EditColumn,
+					Spec: &EditColumnSpec{
+						Type:       DropDefault,
+						TableName:  "test1",
+						ColumnName: "id",
+						SQL: &sqlast.SQLAlterTable{
+							TableName: sqlast.NewSQLObjectName("test1"),
+							Action: &sqlast.AlterColumnTableAction{
+								ColumnName: sqlast.NewSQLIdent("id"),
+								Action:     &sqlast.DropDefaultColumnAction{},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			parser, err := xsqlparser.NewParser(bytes.NewBufferString(c.dsl), &dialect.PostgresqlDialect{})
+			if err != nil {
+				t.Fatalf("%+v", err)
+			}
+
+			stmts, err := parser.ParseSQL()
+			if err != nil {
+				t.Fatalf("%+v", err)
+			}
+			expect, err := DSLToDiff(stmts)
+			if err != nil {
+				t.Fatalf("%+v", err)
+			}
+			if diff := cmp.Diff(expect, c.expect, IgnoreMarker); diff != "" {
+				t.Errorf(diff)
+			}
+		})
+	}
+}
+
 func genTableDef(t *testing.T, def string) []*TableDef {
 	t.Helper()
 	creates := parseCreateTable(t, def)
