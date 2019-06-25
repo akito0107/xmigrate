@@ -95,7 +95,7 @@ func Inverse(diff *SchemaDiff, currentTable []*TableDef) (*SchemaDiff, error) {
 			return &SchemaDiff{
 				Type: EditColumn,
 				Spec: &EditColumnSpec{
-					Type:       DropDefault,
+					Type:       SetDefault,
 					TableName:  spec.TableName,
 					ColumnName: spec.ColumnName,
 					SQL: &sqlast.SQLAlterTable{
@@ -113,7 +113,7 @@ func Inverse(diff *SchemaDiff, currentTable []*TableDef) (*SchemaDiff, error) {
 			return &SchemaDiff{
 				Type: EditColumn,
 				Spec: &EditColumnSpec{
-					Type:       SetDefault,
+					Type:       DropDefault,
 					TableName:  spec.TableName,
 					ColumnName: spec.ColumnName,
 					SQL: &sqlast.SQLAlterTable{
