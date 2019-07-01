@@ -1,6 +1,7 @@
 package toposrt
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -52,7 +53,14 @@ func TestResolveGraph(t *testing.T) {
 	if err != nil {
 		t.Fatalf("%+v", err)
 	}
+	var resolved []string
 	for _, node := range result.Nodes {
-		t.Log(node)
+		deps := node.GetDeps()
+		for _, d := range deps {
+			if !strings.Contains(strings.Join(resolved, ""), d.Symbol()) {
+				t.Errorf("node %s dep %s is not resolved", node.Symbol(), d.Symbol())
+			}
+		}
+		resolved = append(resolved, node.Symbol())
 	}
 }
