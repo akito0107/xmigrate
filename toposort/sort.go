@@ -1,9 +1,11 @@
-package toposrt
+package toposort
 
 import (
-	"errors"
+	"bytes"
 	"fmt"
 	"io"
+
+	errors "golang.org/x/xerrors"
 )
 
 type Node interface {
@@ -53,10 +55,13 @@ func ResolveGraph(graph *Graph) (Graph, error) {
 			for name := range nodeDependencies {
 				g.Nodes = append(g.Nodes, nodeNames[name])
 			}
-			return g, errors.New("Circular Dependency")
+
+			var buf bytes.Buffer
+			DisplayGraph(&buf, &g)
+			return g, errors.Errorf("circular dependency: %s", buf.String())
 		}
 
-		for name, _ := range readySet {
+		for name := range readySet {
 			delete(nodeDependencies, name)
 			resolved.Nodes = append(resolved.Nodes, nodeNames[name])
 		}

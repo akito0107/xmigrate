@@ -1,4 +1,4 @@
-package toposrt
+package toposort
 
 import (
 	"strings"
