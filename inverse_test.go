@@ -319,7 +319,7 @@ create table test2(id int primary key);`,
 			}
 
 			if d := cmp.Diff(act, c.expect, IgnoreMarker); d != "" {
-				t.Errorf("diff: %s", d)
+				t.Errorf("Diff: %s", d)
 			}
 		})
 	}

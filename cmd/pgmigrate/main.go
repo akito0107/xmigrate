@@ -11,7 +11,9 @@ import (
 	"github.com/urfave/cli"
 	"github.com/xo/dburl"
 
+	"github.com/akito0107/xmigrate"
 	"github.com/akito0107/xmigrate/cmd"
+	"github.com/akito0107/xmigrate/toposort"
 )
 
 func main() {
@@ -66,10 +68,18 @@ func syncAction(c *cli.Context, u *dburl.URL) error {
 		db = d
 		defer db.Close()
 	}
+	graph := xmigrate.CalcGraph(diffs)
+	resolved, err := toposort.ResolveGraph(graph)
+	if err != nil {
+		return err
+	}
 
-	for _, d := range diffs {
-		sql := d.Spec.ToSQLString()
+	for _, n := range resolved.Nodes {
+		d := n.(*xmigrate.DiffNode)
+		sql := d.Diff.Spec.ToSQLString()
+
 		fmt.Printf("applying: %s\n", sql)
+
 		if apply {
 			if _, err := db.Exec(sql); err != nil {
 				return err
