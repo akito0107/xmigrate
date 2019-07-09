@@ -231,7 +231,7 @@ create table test2(id int primary key);
 			}
 
 			if d := cmp.Diff(diff, c.expect, IgnoreMarker); d != "" {
-				t.Errorf("diff: %s", d)
+				t.Errorf("Diff: %s", d)
 			}
 		})
 	}
