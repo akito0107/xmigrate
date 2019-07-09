@@ -17,10 +17,11 @@ func NewNodeImpl(name string, deps ...*NodeImpl) *NodeImpl {
 	}
 }
 
-func (n *NodeImpl) GetDeps() map[string]Node {
-	deps := make(map[string]Node)
+func (n *NodeImpl) GetDeps() []string {
+	var deps []string
+
 	for _, d := range n.deps {
-		deps[d.Symbol()] = d
+		deps = append(deps, d.Symbol())
 	}
 
 	return deps
@@ -57,8 +58,8 @@ func TestResolveGraph(t *testing.T) {
 	for _, node := range result.Nodes {
 		deps := node.GetDeps()
 		for _, d := range deps {
-			if !strings.Contains(strings.Join(resolved, ""), d.Symbol()) {
-				t.Errorf("node %s dep %s is not resolved", node.Symbol(), d.Symbol())
+			if !strings.Contains(strings.Join(resolved, ""), d) {
+				t.Errorf("node %s dep %s is not resolved", node.Symbol(), d)
 			}
 		}
 		resolved = append(resolved, node.Symbol())

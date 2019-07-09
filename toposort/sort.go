@@ -10,7 +10,7 @@ import (
 
 type Node interface {
 	Symbol() string
-	GetDeps() map[string]Node
+	GetDeps() []string
 }
 
 type Graph struct {
@@ -33,7 +33,7 @@ func DisplayGraph(w io.Writer, graph *Graph) {
 
 func ResolveGraph(graph *Graph) (Graph, error) {
 	nodeNames := make(map[string]Node)
-	nodeDependencies := make(map[string]map[string]Node)
+	nodeDependencies := make(map[string][]string)
 
 	for _, node := range graph.Nodes {
 		nodeNames[node.Symbol()] = node
@@ -67,10 +67,10 @@ func ResolveGraph(graph *Graph) (Graph, error) {
 		}
 
 		for name, deps := range nodeDependencies {
-			diff := make(map[string]Node)
-			for k, v := range deps {
-				if _, ok := readySet[k]; !ok {
-					diff[k] = v
+			var diff []string
+			for _, v := range deps {
+				if _, ok := readySet[v]; !ok {
+					diff = append(diff, v)
 				}
 			}
 			nodeDependencies[name] = diff
