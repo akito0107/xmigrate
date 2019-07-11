@@ -24,20 +24,11 @@ strategy:
     postgres11_go_12:
       go_version: 1.12
       postgresService: pg11
-    postgres11_go_11:
-      go_version: 1.11
-      postgresService: pg11
     postgres10_go_12:
       go_version: 1.12
       postgresService: pg10
-    postgres10_go_11:
-      go_version: 1.11
-      postgresService: pg10
     postgres96_go_12:
       go_version: 1.12
-      postgresService: pg96
-    postgres96_go_11:
-      go_version: 1.11
       postgresService: pg96
 
 variables:
