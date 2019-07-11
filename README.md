@@ -1,4 +1,4 @@
-# xmigrate
+# xmigrate/pgmigrate
 
 Schema first DB migration tool for PostgreSQL.
 
@@ -13,7 +13,7 @@ Schema first DB migration tool for PostgreSQL.
 
 ### Installing
 ```
-$ go get -u github.com/akito0107/xmigrate/cmd/xmigrate
+$ go get -u github.com/akito0107/xmigrate/cmd/pgmigrate
 ```
 
 ### How To Use
@@ -41,14 +41,14 @@ CREATE TABLE ACCOUNT (
 3. Call sync command with `-f` option.
 
 ```
-$ xmigrate --dbname xmigrate_tutorial sync -f schema.sql
+$ pgmigrate -f schema.sql postgres://[USER_NAME]:[PASSWORD]@localhost:5432/xmigrate_tutorial
 dry-run mode (with --apply flag will be exec below queries)
 applying: CREATE TABLE ACCOUNT (id serial PRIMARY KEY, email character varying UNIQUE NOT NULL, name character varying, created_at timestamp with timezone DEFAULT current_timestamp)
 ```
 
 4. Recall sync with `--apply` option.
 ```
-$ xmigrate --dbname xmigrate_tutorial sync -f schema.sql  --apply
+$ pgmigrate -f schema.sql --apply postgres://[USER_NAME]:[PASSWORD]@localhost:5432/xmigrate_tutorial
 applying: CREATE TABLE ACCOUNT (id serial PRIMARY KEY, email character varying UNIQUE NOT NULL, name character varying, created_at timestamp with time zone DEFAULT current_timestamp)
 ```
 
@@ -93,11 +93,11 @@ CREATE TABLE ACCOUNT (
 
 7. Preview & Apply
 ```
-$ xmigrate --dbname xmigrate_tutorial sync -f schema.sql
+$ pgmigrate -f schema.sql postgres://[USER_NAME]:[PASSWORD]@localhost:5432/
 dry-run mode (with --apply flag will be exec below queries)
 applying: ALTER TABLE account ADD COLUMN address character varying NOT NULL
 
-$ xmigrate --dbname xmigrate_tutorial sync -f schema.sql  --apply
+$ pgmigrate -f schema.sql --apply postgres://[USER_NAME]:[PASSWORD]@localhost:5432/
 applying: ALTER TABLE account ADD COLUMN address character varying NOT NULL
 ```
 
@@ -131,7 +131,7 @@ given:
 
 then:
 ```
-% xmigrate --dbname xmigrate_tutorial sync -f schema.sql
+$ pgmigrate -f schema.sql postgres://[USER_NAME]:[PASSWORD]@localhost:5432/
 dry-run mode (with --apply flag will be exec below queries)
 applying: CREATE TABLE ITEM (ID serial PRIMARY KEY, NAME character varying NOT NULL, PRICE int NOT NULL)
 ```
@@ -149,7 +149,7 @@ given:
 
 then:
 ```
-% xmigrate --dbname xmigrate_tutorial sync -f schema.sql
+$ pgmigrate -f schema.sql postgres://[USER_NAME]:[PASSWORD]@localhost:5432/
 dry-run mode (with --apply flag will be exec below queries)
 applying: DROP TABLE IF EXISTS item
 ```
@@ -169,7 +169,7 @@ CREATE TABLE ACCOUNT (
 
 then:
 ```
-% xmigrate --dbname xmigrate_tutorial sync -f schema.sql
+$ pgmigrate -f schema.sql postgres://[USER_NAME]:[PASSWORD]@localhost:5432/
 dry-run mode (with --apply flag will be exec below queries)
 applying: ALTER TABLE account ADD COLUMN ADDRESS2 character varying
 ```
@@ -189,7 +189,7 @@ CREATE TABLE ACCOUNT (
 
 then:
 ```
-% xmigrate --dbname xmigrate_tutorial sync -f schema.sql
+$ pgmigrate -f schema.sql postgres://[USER_NAME]:[PASSWORD]@localhost:5432/
 dry-run mode (with --apply flag will be exec below queries)
 applying: ALTER TABLE account DROP COLUMN address2
 ```
@@ -211,7 +211,7 @@ CREATE TABLE ACCOUNT (
 
 then:
 ```
-% xmigrate --dbname xmigrate_tutorial sync -f schema.sql
+$ pgmigrate -f schema.sql postgres://[USER_NAME]:[PASSWORD]@localhost:5432/
 dry-run mode (with --apply flag will be exec below queries)
 applying: ALTER TABLE ACCOUNT ALTER COLUMN ADDRESS TYPE text
 ```
@@ -232,7 +232,7 @@ given:
 
 then:
 ```
-% xmigrate --dbname xmigrate_tutorial sync -f schema.sql
+$ pgmigrate -f schema.sql postgres://[USER_NAME]:[PASSWORD]@localhost:5432/
 dry-run mode (with --apply flag will be exec below queries)
 applying: ALTER TABLE ACCOUNT ALTER COLUMN NAME SET NOT NULL
 ```
@@ -253,7 +253,7 @@ given:
 
 then:
 ```
-% xmigrate --dbname xmigrate_tutorial sync -f schema.sql
+$ pgmigrate -f schema.sql postgres://[USER_NAME]:[PASSWORD]@localhost:5432/
 dry-run mode (with --apply flag will be exec below queries)
 applying: ALTER TABLE ACCOUNT ALTER COLUMN NAME DROP NOT NULL
 ```
@@ -273,7 +273,7 @@ CREATE TABLE ACCOUNT (
 
 then:
 ```
-% xmigrate --dbname xmigrate_tutorial sync -f schema.sql
+$ pgmigrate -f schema.sql postgres://[USER_NAME]:[PASSWORD]@localhost:5432/
 dry-run mode (with --apply flag will be exec below queries)
 applying: ALTER TABLE ACCOUNT ADD CONSTRAINT unique_name_address UNIQUE(NAME, ADDRESS)
 ```
@@ -305,7 +305,7 @@ CREATE TABLE ACCOUNT (
 
 then:
 ```
-% xmigrate --dbname xmigrate_tutorial sync -f schema.sql
+$ pgmigrate -f schema.sql postgres://[USER_NAME]:[PASSWORD]@localhost:5432/
 dry-run mode (with --apply flag will be exec below queries)
 applying: ALTER TABLE ACCOUNT DROP CONSTRAINT unique_name_address
 ```
@@ -313,27 +313,22 @@ applying: ALTER TABLE ACCOUNT DROP CONSTRAINT unique_name_address
 ### options
 ```
 NAME:
-   xmigrate - postgres db migration utility
+   pgmigrate - postgres db migration utility
 
 USAGE:
-   xmigrate [GLOBAL OPTIONS] [COMMANDS] [sub command options]
+   pgmigrate [db url] [OPTIONS]
 
 VERSION:
    0.0.0
 
 COMMANDS:
-     sync
      help, h  Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
-   --host value                db host (default: "127.0.0.1")
-   --port value, -p value      db host (default: "5432")
-   --dbname value, -d value    dbname
-   --password value, -W value  password
-   --username value, -U value  db user name (default: "postgres")
-   --verbose
-   --help, -h                  show help
-   --version, -v               print the version
+   --schemapath value, -f value  schema sql path (default: "schema.sql")
+   --apply, -a                   apply migration
+   --help, -h                    show help
+   --version, -v                 print the version
 ```
 
 ## License
