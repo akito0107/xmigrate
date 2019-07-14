@@ -37,14 +37,19 @@ func Diff(targ *TargetTable, currentTable []*TableDef) ([]*SchemaDiff, error) {
 	var diffs []*SchemaDiff
 
 	targetState := make(map[string]*sqlast.SQLCreateTable)
-	indexes := partitionIndexByTableName(targ.IndexDef)
+	targetIndexes := partitionIndexByName(targ.IndexDef)
+
 	for _, t := range targ.TableDef {
 		targetState[strings.ToLower(t.Name.ToSQLString())] = t
 	}
 
+	currentIndexes := make(map[string]*sqlast.SQLCreateIndex)
 	currentState := make(map[string]*TableDef)
 	for _, c := range currentTable {
 		currentState[c.Name] = c
+		for n, i := range c.Indexes {
+			currentIndexes[n] = i
+		}
 	}
 
 	for n, v := range targetState {
@@ -101,6 +106,8 @@ func Diff(targ *TargetTable, currentTable []*TableDef) ([]*SchemaDiff, error) {
 			}
 		}
 	}
+
+	diffs = append(diffs, computeIndexDiff(currentIndexes, targetIndexes)...)
 
 	return diffs, nil
 }
@@ -223,11 +230,11 @@ func DSLToDiff(stmts []sqlast.SQLStmt) ([]*SchemaDiff, error) {
 	return diff, nil
 }
 
-func partitionIndexByTableName(indexes []*sqlast.SQLCreateIndex) map[string][]*sqlast.SQLCreateIndex {
-	p := make(map[string][]*sqlast.SQLCreateIndex)
+func partitionIndexByName(indexes []*sqlast.SQLCreateIndex) map[string]*sqlast.SQLCreateIndex {
+	p := make(map[string]*sqlast.SQLCreateIndex)
 
 	for _, i := range indexes {
-		p[i.TableName.ToSQLString()] = append(p[i.TableName.ToSQLString()], i)
+		p[i.IndexName.ToSQLString()] = i
 	}
 
 	return p
@@ -327,6 +334,25 @@ func (d *DropTableConstraintSpec) ToSQLString() string {
 		},
 	}
 
+	return sql.ToSQLString()
+}
+
+type AddIndexSpec struct {
+	Def *sqlast.SQLCreateIndex
+}
+
+func (a *AddIndexSpec) ToSQLString() string {
+	return a.Def.ToSQLString()
+}
+
+type DropIndexSpec struct {
+	IndexName string
+}
+
+func (d *DropIndexSpec) ToSQLString() string {
+	sql := &sqlast.SQLDropIndex{
+		IndexNames: []*sqlast.SQLIdent{sqlast.NewSQLIdent(d.IndexName)},
+	}
 	return sql.ToSQLString()
 }
 
@@ -562,4 +588,33 @@ func hasNotNullConstraint(def *sqlast.SQLColumnDef) bool {
 
 func hasDefaultClause(def *sqlast.SQLColumnDef) bool {
 	return def.Default != nil
+}
+
+func computeIndexDiff(current, target map[string]*sqlast.SQLCreateIndex) []*SchemaDiff {
+	var diffs []*SchemaDiff
+	for n, i := range current {
+		_, ok := target[n]
+		if !ok {
+			diffs = append(diffs, &SchemaDiff{
+				Type: RemoveIndex,
+				Spec: &DropIndexSpec{
+					IndexName: i.IndexName.ToSQLString(),
+				},
+			})
+		}
+	}
+
+	for n, i := range target {
+		_, ok := current[n]
+		if !ok {
+			diffs = append(diffs, &SchemaDiff{
+				Type: AddIndex,
+				Spec: &AddIndexSpec{
+					Def: i,
+				},
+			})
+		}
+	}
+
+	return diffs
 }
