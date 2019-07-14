@@ -225,7 +225,7 @@ create table test2(id int primary key);
 			targ := parseCreateTable(t, c.target)
 			curr := genTableDef(t, c.current)
 
-			diff, err := Diff(targ, curr)
+			diff, err := Diff(&TargetTable{TableDef: targ}, curr)
 			if err != nil {
 				t.Fatalf("%+v", err)
 			}

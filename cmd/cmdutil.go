@@ -4,6 +4,8 @@ import (
 	"context"
 	"os"
 
+	errors "golang.org/x/xerrors"
+
 	"github.com/akito0107/xsqlparser"
 	"github.com/akito0107/xsqlparser/dialect"
 	"github.com/akito0107/xsqlparser/sqlast"
@@ -29,13 +31,18 @@ func GetDiff(ctx context.Context, schemapath string, url *dburl.URL) ([]*xmigrat
 	}
 
 	var createTables []*sqlast.SQLCreateTable
+	var createIndexes []*sqlast.SQLCreateIndex
 
 	for _, s := range sqls {
-		c, ok := s.(*sqlast.SQLCreateTable)
-		if !ok {
-			continue
+
+		switch sql := s.(type) {
+		case *sqlast.SQLCreateTable:
+			createTables = append(createTables, sql)
+		case *sqlast.SQLCreateIndex:
+			createIndexes = append(createIndexes, sql)
+		default:
+			return nil, nil, errors.Errorf("unsupported sql: %s", s.ToSQLString())
 		}
-		createTables = append(createTables, c)
 	}
 
 	dumper := xmigrate.NewPGDumpFromURL(url)
@@ -45,7 +52,7 @@ func GetDiff(ctx context.Context, schemapath string, url *dburl.URL) ([]*xmigrat
 		return nil, nil, err
 	}
 
-	diffs, err := xmigrate.Diff(createTables, res)
+	diffs, err := xmigrate.Diff(&xmigrate.TargetTable{TableDef: createTables, IndexDef: createIndexes}, res)
 	if err != nil {
 		return nil, nil, err
 	}

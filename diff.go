@@ -19,18 +19,26 @@ const (
 	EditColumn
 	AddTableConstraint
 	DropTableConstraint
+	AddIndex
+	RemoveIndex
 )
+
+type TargetTable struct {
+	TableDef []*sqlast.SQLCreateTable
+	IndexDef []*sqlast.SQLCreateIndex
+}
 
 type SchemaDiff struct {
 	Type DiffType
 	Spec DiffSpec
 }
 
-func Diff(targ []*sqlast.SQLCreateTable, currentTable []*TableDef) ([]*SchemaDiff, error) {
+func Diff(targ *TargetTable, currentTable []*TableDef) ([]*SchemaDiff, error) {
 	var diffs []*SchemaDiff
 
 	targetState := make(map[string]*sqlast.SQLCreateTable)
-	for _, t := range targ {
+	indexes := partitionIndexByTableName(targ.IndexDef)
+	for _, t := range targ.TableDef {
 		targetState[strings.ToLower(t.Name.ToSQLString())] = t
 	}
 
@@ -55,6 +63,7 @@ func Diff(targ []*sqlast.SQLCreateTable, currentTable []*TableDef) ([]*SchemaDif
 		}
 
 		diffs = append(diffs, diff...)
+
 	}
 
 	for n, v := range currentState {
@@ -212,6 +221,16 @@ func DSLToDiff(stmts []sqlast.SQLStmt) ([]*SchemaDiff, error) {
 	}
 
 	return diff, nil
+}
+
+func partitionIndexByTableName(indexes []*sqlast.SQLCreateIndex) map[string][]*sqlast.SQLCreateIndex {
+	p := make(map[string][]*sqlast.SQLCreateIndex)
+
+	for _, i := range indexes {
+		p[i.TableName.ToSQLString()] = append(p[i.TableName.ToSQLString()], i)
+	}
+
+	return p
 }
 
 type DiffSpec interface {
