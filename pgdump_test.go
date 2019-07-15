@@ -27,7 +27,7 @@ func TestPGDump_DumpHelpers(t *testing.T) {
 			t.Fatalf("%+v", err)
 		}
 
-		expected := []string{"account", "category", "item", "subcategory", "subitem"}
+		expected := []string{"account", "category", "item", "num_tests", "subcategory", "subitem"}
 
 		if diff := cmp.Diff(tableNames, expected); diff != "" {
 			t.Errorf("should be same but %s", diff)
@@ -67,7 +67,7 @@ func TestPGDump_Dump(t *testing.T) {
 		t.Fatalf("%+v", err)
 	}
 
-	if len(dumped) != 5 {
+	if len(dumped) != 6 {
 		t.Fatalf("%+v", dumped)
 	}
 
