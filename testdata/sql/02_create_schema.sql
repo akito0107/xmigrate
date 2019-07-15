@@ -37,3 +37,7 @@ create table subcategory(
     CONSTRAINT pkey_name_category_id PRIMARY KEY (name, category_id)
 );
 
+create table num_tests(
+    id bigserial primary key,
+    num numeric (5,2)
+)

@@ -87,14 +87,12 @@ func (p *PGDump) Dump(ctx context.Context) ([]*TableDef, error) {
 				c.Constraints = append(c.Constraints, cnts...)
 			}
 
-			_, isint := c.DataType.(*sqlast.Int)
-
 			// convert to int with nextval to serial
-			if isint && c.Default != nil && strings.HasPrefix(c.Default.ToSQLString(), "nextval") {
-				c.DataType = &sqlast.Custom{
-					Ty: sqlast.NewSQLObjectName("serial"),
-				}
+			if serial, ok := fixSerial(c); ok {
+				c.DataType = serial
+				c.Default = nil
 			}
+
 		}
 
 		tables = append(tables, &TableDef{
@@ -152,6 +150,27 @@ func (p *PGDump) Dump(ctx context.Context) ([]*TableDef, error) {
 	}
 
 	return tables, nil
+}
+
+func fixSerial(def *sqlast.SQLColumnDef) (*sqlast.Custom, bool) {
+	switch def.DataType.(type) {
+	case *sqlast.Int:
+		if def.Default != nil && strings.HasPrefix(def.Default.ToSQLString(), "nextval") {
+			return &sqlast.Custom{
+				Ty: sqlast.NewSQLObjectName("serial"),
+			}, true
+		}
+	case *sqlast.BigInt:
+		if def.Default != nil && strings.HasPrefix(def.Default.ToSQLString(), "nextval") {
+			return &sqlast.Custom{
+				Ty: sqlast.NewSQLObjectName("bigserial"),
+			}, true
+		}
+	default:
+		return nil, false
+	}
+
+	return nil, false
 }
 
 type pgInformationSchemaTables struct {
@@ -283,6 +302,21 @@ func parseTypeOption(tp sqlast.SQLType, info *pgInformationSchemaColumns) sqlast
 			}
 		}
 		return tp
+	case *sqlast.Decimal:
+		var precision *uint
+		if info.NumericPrecision.Valid {
+			v := uint(info.NumericPrecision.Int64)
+			precision = &v
+		}
+		var scale *uint
+		if info.NumericScale.Valid {
+			v := uint(info.NumericScale.Int64)
+			scale = &v
+		}
+		return &sqlast.Decimal{
+			Precision: precision,
+			Scale:     scale,
+		}
 	default:
 		return tp
 	}
