@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 
 	"github.com/akito0107/xsqlparser"
@@ -34,6 +35,7 @@ type TableDef struct {
 	Name       string
 	Columns    map[string]*sqlast.SQLColumnDef
 	Constrains []*sqlast.TableConstraint
+	Indexes    map[string]*sqlast.SQLCreateIndex
 }
 
 type PGDump struct {
@@ -85,14 +87,12 @@ func (p *PGDump) Dump(ctx context.Context) ([]*TableDef, error) {
 				c.Constraints = append(c.Constraints, cnts...)
 			}
 
-			_, isint := c.DataType.(*sqlast.Int)
-
 			// convert to int with nextval to serial
-			if isint && c.Default != nil && strings.HasPrefix(c.Default.ToSQLString(), "nextval") {
-				c.DataType = &sqlast.Custom{
-					Ty: sqlast.NewSQLObjectName("serial"),
-				}
+			if serial, ok := fixSerial(c); ok {
+				c.DataType = serial
+				c.Default = nil
 			}
+
 		}
 
 		tables = append(tables, &TableDef{
@@ -141,9 +141,36 @@ func (p *PGDump) Dump(ctx context.Context) ([]*TableDef, error) {
 
 			spec.KeyExpr.Columns = columns
 		}
+
+		idx, err := p.getIndexes(ctx, t)
+		if err != nil {
+			return nil, errors.Errorf("getIndex failed: %w", err)
+		}
+		t.Indexes = idx
 	}
 
 	return tables, nil
+}
+
+func fixSerial(def *sqlast.SQLColumnDef) (*sqlast.Custom, bool) {
+	switch def.DataType.(type) {
+	case *sqlast.Int:
+		if def.Default != nil && strings.HasPrefix(def.Default.ToSQLString(), "nextval") {
+			return &sqlast.Custom{
+				Ty: sqlast.NewSQLObjectName("serial"),
+			}, true
+		}
+	case *sqlast.BigInt:
+		if def.Default != nil && strings.HasPrefix(def.Default.ToSQLString(), "nextval") {
+			return &sqlast.Custom{
+				Ty: sqlast.NewSQLObjectName("bigserial"),
+			}, true
+		}
+	default:
+		return nil, false
+	}
+
+	return nil, false
 }
 
 type pgInformationSchemaTables struct {
@@ -275,6 +302,21 @@ func parseTypeOption(tp sqlast.SQLType, info *pgInformationSchemaColumns) sqlast
 			}
 		}
 		return tp
+	case *sqlast.Decimal:
+		var precision *uint
+		if info.NumericPrecision.Valid {
+			v := uint(info.NumericPrecision.Int64)
+			precision = &v
+		}
+		var scale *uint
+		if info.NumericScale.Valid {
+			v := uint(info.NumericScale.Int64)
+			scale = &v
+		}
+		return &sqlast.Decimal{
+			Precision: precision,
+			Scale:     scale,
+		}
 	default:
 		return tp
 	}
@@ -415,6 +457,74 @@ func (p *PGDump) getTableConstrains(ctx context.Context, tableName string, keyma
 	return columnConstraintmap, tableConstraints, nil
 }
 
+type pgIndexInfo struct {
+	SchemaName string         `db:"schemaname"`
+	TableName  string         `db:"tablename"`
+	IndexName  string         `db:"indexname"`
+	IndexDef   string         `db:"indexdef"`
+	TableSpace sql.NullString `db:"tablespace"`
+}
+
+func (p *PGDump) getIndexes(ctx context.Context, tableDef *TableDef) (map[string]*sqlast.SQLCreateIndex, error) {
+	var indexes []pgIndexInfo
+
+	if err := p.db.SelectContext(ctx, &indexes, "SELECT * from pg_indexes where tablename = $1", tableDef.Name); err != nil {
+		return nil, errors.Errorf("selectContext failed with tableName %s: %w", tableDef.Name, err)
+	}
+	indexMap := make(map[string]*sqlast.SQLCreateIndex)
+
+	for _, i := range indexes {
+		parser := getParser(i.IndexDef)
+		indexdef, err := parser.ParseStatement()
+		if err != nil {
+			return nil, errors.Errorf("def: %s parse failed: %w", i.IndexDef, err)
+		}
+
+		indexsql, ok := indexdef.(*sqlast.SQLCreateIndex)
+		if !ok {
+			return nil, errors.Errorf("def: %s is not a create index statement", i.IndexDef)
+		}
+
+		if len(indexsql.ColumnNames) == 1 {
+			col := tableDef.Columns[indexsql.ColumnNames[0].ToSQLString()]
+
+			var isunique bool
+			for _, c := range col.Constraints {
+				if _, ok := c.Spec.(*sqlast.UniqueColumnSpec); !ok {
+					continue
+				}
+				isunique = true
+			}
+			if indexsql.IsUnique && isunique {
+				continue
+			}
+			indexMap[i.IndexName] = indexsql
+
+			continue
+		} else {
+			var skip bool
+			if indexsql.IsUnique {
+				for _, cons := range tableDef.Constrains {
+					uniqueCons, ok := cons.Spec.(*sqlast.UniqueTableConstraint)
+					if !ok {
+						continue
+					}
+					if sameColumnNames(indexsql.ColumnNames, uniqueCons.Columns) {
+						skip = true
+					}
+				}
+			}
+
+			if !skip {
+				indexMap[i.IndexName] = indexsql
+			}
+		}
+	}
+
+	return indexMap, nil
+
+}
+
 func getParser(src string) *xsqlparser.Parser {
 	parser, err := xsqlparser.NewParser(bytes.NewBufferString(src), &dialect.PostgresqlDialect{})
 	if err != nil {
@@ -422,4 +532,24 @@ func getParser(src string) *xsqlparser.Parser {
 	}
 
 	return parser
+}
+
+func sameColumnNames(a []*sqlast.SQLIdent, b []*sqlast.SQLIdent) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	sort.Slice(a, func(i, j int) bool {
+		return a[i].ToSQLString() > a[j].ToSQLString()
+	})
+	sort.Slice(b, func(i, j int) bool {
+		return b[i].ToSQLString() > b[j].ToSQLString()
+	})
+
+	for idx, c := range a {
+		if c.ToSQLString() != b[idx].ToSQLString() {
+			return false
+		}
+	}
+
+	return true
 }

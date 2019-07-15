@@ -70,6 +70,8 @@ func CalcGraph(diffs []*SchemaDiff) *toposort.Graph {
 				deps[d] = append(deps[d], ref.KeyExpr.TableName.ToSQLString())
 			}
 			tables[spec.TableName] = append(tables[spec.TableName], spec.ToSQLString())
+		case *AddIndexSpec:
+			deps[d] = append(deps[d], spec.Def.TableName.ToSQLString())
 		}
 	}
 

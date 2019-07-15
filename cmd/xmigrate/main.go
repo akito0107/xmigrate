@@ -94,7 +94,7 @@ func getDiff(ctx context.Context, schemapath string, conf *xmigrate.PGConf) ([]*
 		return nil, nil, err
 	}
 
-	diffs, err := xmigrate.Diff(createTables, res)
+	diffs, err := xmigrate.Diff(&xmigrate.TargetTable{TableDef: createTables}, res)
 	if err != nil {
 		return nil, nil, err
 	}
