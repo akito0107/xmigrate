@@ -310,6 +310,34 @@ dry-run mode (with --apply flag will be exec below queries)
 applying: ALTER TABLE ACCOUNT DROP CONSTRAINT unique_name_address
 ```
 
+### Create Index
+
+given:
+```diff
++ CREATE INDEX name_idx ON account (name);
+```
+
+then:
+```
+$ pgmigrate -f schema.sql postgres://[USER_NAME]:[PASSWORD]@localhost:5432/
+dry-run mode (with --apply flag will be exec below queries)
+applying: CREATE INDEX cat_name_idx ON item (category_id, name)
+```
+
+### Drop Index
+
+given:
+```diff
+- CREATE INDEX name_idx ON account (name);
+```
+
+then:
+```
+$ pgmigrate -f schema.sql postgres://[USER_NAME]:[PASSWORD]@localhost:5432/
+dry-run mode (with --apply flag will be exec below queries)
+DROP INDEX name_idx
+```
+
 ### options
 ```
 NAME:
