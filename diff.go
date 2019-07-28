@@ -462,7 +462,14 @@ type EditColumnAction interface {
 func computeColumnDiff(tableName string, targ *sqlast.SQLColumnDef, current *sqlast.SQLColumnDef) (bool, []*SchemaDiff, error) {
 	var diffs []*SchemaDiff
 
-	// change data type
+	tgTp, tok := targ.DataType.(*sqlast.Custom)
+	cuTp, cok := targ.DataType.(*sqlast.Custom)
+	// custom type is not comparable via reflection
+	if tok && cok {
+		if strings.EqualFold(tgTp.ToSQLString(), cuTp.ToSQLString()) {
+			return false, nil, nil
+		}
+	}
 	if !reflect.DeepEqual(targ.DataType, current.DataType) {
 		sql := &sqlast.SQLAlterTable{
 			TableName: sqlast.NewSQLObjectName(tableName),
