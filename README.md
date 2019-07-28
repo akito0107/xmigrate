@@ -344,7 +344,7 @@ NAME:
    pgmigrate - postgres db migration utility
 
 USAGE:
-   pgmigrate [db url] [OPTIONS]
+   pgmigrate [GLOBAL OPTIONS] [db url]
 
 VERSION:
    0.0.0
