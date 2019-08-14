@@ -27,11 +27,11 @@ func TestDiff(t *testing.T) {
 				{
 					Type: AddTable,
 					Spec: &AddTableSpec{
-						SQL: &sqlast.SQLCreateTable{
+						SQL: &sqlast.CreateTableStmt{
 							Name: sqlast.NewSQLObjectName("test1"),
 							Elements: []sqlast.TableElement{
-								&sqlast.SQLColumnDef{
-									Name:     sqlast.NewSQLIdent("id"),
+								&sqlast.ColumnDef{
+									Name:     sqlast.NewIdent("id"),
 									DataType: &sqlast.Int{},
 									Constraints: []*sqlast.ColumnConstraint{
 										{
@@ -74,8 +74,8 @@ create table test2(id int primary key);
 					Type: AddColumn,
 					Spec: &AddColumnSpec{
 						TableName: "test1",
-						ColumnDef: &sqlast.SQLColumnDef{
-							Name:     sqlast.NewSQLIdent("name"),
+						ColumnDef: &sqlast.ColumnDef{
+							Name:     sqlast.NewIdent("name"),
 							DataType: &sqlast.VarcharType{},
 							Constraints: []*sqlast.ColumnConstraint{
 								{
@@ -115,10 +115,10 @@ create table test2(id int primary key);
 						Type:       EditType,
 						TableName:  "test1",
 						ColumnName: "name",
-						SQL: &sqlast.SQLAlterTable{
+						SQL: &sqlast.AlterTableStmt{
 							TableName: sqlast.NewSQLObjectName("test1"),
 							Action: &sqlast.AlterColumnTableAction{
-								ColumnName: sqlast.NewSQLIdent("name"),
+								ColumnName: sqlast.NewIdent("name"),
 								Action: &sqlast.PGAlterDataTypeColumnAction{
 									DataType: &sqlast.VarcharType{},
 								},
@@ -139,10 +139,10 @@ create table test2(id int primary key);
 						Type:       SetNotNull,
 						TableName:  "test1",
 						ColumnName: "name",
-						SQL: &sqlast.SQLAlterTable{
+						SQL: &sqlast.AlterTableStmt{
 							TableName: sqlast.NewSQLObjectName("test1"),
 							Action: &sqlast.AlterColumnTableAction{
-								ColumnName: sqlast.NewSQLIdent("name"),
+								ColumnName: sqlast.NewIdent("name"),
 								Action:     &sqlast.PGSetNotNullColumnAction{},
 							},
 						},
@@ -161,10 +161,10 @@ create table test2(id int primary key);
 						Type:       DropNotNull,
 						TableName:  "test1",
 						ColumnName: "name",
-						SQL: &sqlast.SQLAlterTable{
+						SQL: &sqlast.AlterTableStmt{
 							TableName: sqlast.NewSQLObjectName("test1"),
 							Action: &sqlast.AlterColumnTableAction{
-								ColumnName: sqlast.NewSQLIdent("name"),
+								ColumnName: sqlast.NewIdent("name"),
 								Action:     &sqlast.PGDropNotNullColumnAction{},
 							},
 						},
@@ -183,10 +183,10 @@ create table test2(id int primary key);
 						Type:       SetDefault,
 						TableName:  "test1",
 						ColumnName: "id",
-						SQL: &sqlast.SQLAlterTable{
+						SQL: &sqlast.AlterTableStmt{
 							TableName: sqlast.NewSQLObjectName("test1"),
 							Action: &sqlast.AlterColumnTableAction{
-								ColumnName: sqlast.NewSQLIdent("id"),
+								ColumnName: sqlast.NewIdent("id"),
 								Action: &sqlast.SetDefaultColumnAction{
 									Default: sqlast.NewLongValue(1),
 								},
@@ -207,10 +207,10 @@ create table test2(id int primary key);
 						Type:       DropDefault,
 						TableName:  "test1",
 						ColumnName: "id",
-						SQL: &sqlast.SQLAlterTable{
+						SQL: &sqlast.AlterTableStmt{
 							TableName: sqlast.NewSQLObjectName("test1"),
 							Action: &sqlast.AlterColumnTableAction{
-								ColumnName: sqlast.NewSQLIdent("id"),
+								ColumnName: sqlast.NewIdent("id"),
 								Action:     &sqlast.DropDefaultColumnAction{},
 							},
 						},
@@ -250,11 +250,11 @@ func TestDSLToDiff(t *testing.T) {
 				{
 					Type: AddTable,
 					Spec: &AddTableSpec{
-						SQL: &sqlast.SQLCreateTable{
+						SQL: &sqlast.CreateTableStmt{
 							Name: sqlast.NewSQLObjectName("test1"),
 							Elements: []sqlast.TableElement{
-								&sqlast.SQLColumnDef{
-									Name:     sqlast.NewSQLIdent("id"),
+								&sqlast.ColumnDef{
+									Name:     sqlast.NewIdent("id"),
 									DataType: &sqlast.Int{},
 									Constraints: []*sqlast.ColumnConstraint{
 										{
@@ -290,8 +290,8 @@ func TestDSLToDiff(t *testing.T) {
 					Type: AddColumn,
 					Spec: &AddColumnSpec{
 						TableName: "test1",
-						ColumnDef: &sqlast.SQLColumnDef{
-							Name:     sqlast.NewSQLIdent("name"),
+						ColumnDef: &sqlast.ColumnDef{
+							Name:     sqlast.NewIdent("name"),
 							DataType: &sqlast.VarcharType{},
 							Constraints: []*sqlast.ColumnConstraint{
 								{
@@ -326,10 +326,10 @@ func TestDSLToDiff(t *testing.T) {
 						Type:       EditType,
 						TableName:  "test1",
 						ColumnName: "name",
-						SQL: &sqlast.SQLAlterTable{
+						SQL: &sqlast.AlterTableStmt{
 							TableName: sqlast.NewSQLObjectName("test1"),
 							Action: &sqlast.AlterColumnTableAction{
-								ColumnName: sqlast.NewSQLIdent("name"),
+								ColumnName: sqlast.NewIdent("name"),
 								Action: &sqlast.PGAlterDataTypeColumnAction{
 									DataType: &sqlast.VarcharType{},
 								},
@@ -349,10 +349,10 @@ func TestDSLToDiff(t *testing.T) {
 						Type:       DropNotNull,
 						TableName:  "test1",
 						ColumnName: "name",
-						SQL: &sqlast.SQLAlterTable{
+						SQL: &sqlast.AlterTableStmt{
 							TableName: sqlast.NewSQLObjectName("test1"),
 							Action: &sqlast.AlterColumnTableAction{
-								ColumnName: sqlast.NewSQLIdent("name"),
+								ColumnName: sqlast.NewIdent("name"),
 								Action:     &sqlast.PGDropNotNullColumnAction{},
 							},
 						},
@@ -370,10 +370,10 @@ func TestDSLToDiff(t *testing.T) {
 						Type:       SetNotNull,
 						TableName:  "test1",
 						ColumnName: "name",
-						SQL: &sqlast.SQLAlterTable{
+						SQL: &sqlast.AlterTableStmt{
 							TableName: sqlast.NewSQLObjectName("test1"),
 							Action: &sqlast.AlterColumnTableAction{
-								ColumnName: sqlast.NewSQLIdent("name"),
+								ColumnName: sqlast.NewIdent("name"),
 								Action:     &sqlast.PGSetNotNullColumnAction{},
 							},
 						},
@@ -391,10 +391,10 @@ func TestDSLToDiff(t *testing.T) {
 						Type:       SetDefault,
 						TableName:  "test1",
 						ColumnName: "id",
-						SQL: &sqlast.SQLAlterTable{
+						SQL: &sqlast.AlterTableStmt{
 							TableName: sqlast.NewSQLObjectName("test1"),
 							Action: &sqlast.AlterColumnTableAction{
-								ColumnName: sqlast.NewSQLIdent("id"),
+								ColumnName: sqlast.NewIdent("id"),
 								Action: &sqlast.SetDefaultColumnAction{
 									Default: sqlast.NewLongValue(1),
 								},
@@ -414,10 +414,10 @@ func TestDSLToDiff(t *testing.T) {
 						Type:       DropDefault,
 						TableName:  "test1",
 						ColumnName: "id",
-						SQL: &sqlast.SQLAlterTable{
+						SQL: &sqlast.AlterTableStmt{
 							TableName: sqlast.NewSQLObjectName("test1"),
 							Action: &sqlast.AlterColumnTableAction{
-								ColumnName: sqlast.NewSQLIdent("id"),
+								ColumnName: sqlast.NewIdent("id"),
 								Action:     &sqlast.DropDefaultColumnAction{},
 							},
 						},
@@ -455,10 +455,10 @@ func genTableDef(t *testing.T, def string) []*TableDef {
 
 	var defs []*TableDef
 	for _, c := range creates {
-		columns := make(map[string]*sqlast.SQLColumnDef)
+		columns := make(map[string]*sqlast.ColumnDef)
 
 		for _, col := range c.Elements {
-			column, ok := col.(*sqlast.SQLColumnDef)
+			column, ok := col.(*sqlast.ColumnDef)
 			if !ok {
 				t.Fatalf("%s is not columndef", col.ToSQLString())
 			}
@@ -474,7 +474,7 @@ func genTableDef(t *testing.T, def string) []*TableDef {
 	return defs
 }
 
-func parseCreateTable(t *testing.T, in string) []*sqlast.SQLCreateTable {
+func parseCreateTable(t *testing.T, in string) []*sqlast.CreateTableStmt {
 	t.Helper()
 	parser, err := xsqlparser.NewParser(bytes.NewBufferString(in), &dialect.PostgresqlDialect{})
 	if err != nil {
@@ -486,10 +486,10 @@ func parseCreateTable(t *testing.T, in string) []*sqlast.SQLCreateTable {
 		t.Fatal(err)
 	}
 
-	var creates []*sqlast.SQLCreateTable
+	var creates []*sqlast.CreateTableStmt
 
 	for _, s := range stmts {
-		c, ok := s.(*sqlast.SQLCreateTable)
+		c, ok := s.(*sqlast.CreateTableStmt)
 		if !ok {
 			t.Fatalf("%s is not a create table stmts", s.ToSQLString())
 		}
