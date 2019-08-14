@@ -21,11 +21,11 @@ func TestInverse(t *testing.T) {
 			diff: &SchemaDiff{
 				Type: AddTable,
 				Spec: &AddTableSpec{
-					SQL: &sqlast.SQLCreateTable{
+					SQL: &sqlast.CreateTableStmt{
 						Name: sqlast.NewSQLObjectName("test2"),
 						Elements: []sqlast.TableElement{
-							&sqlast.SQLColumnDef{
-								Name:     sqlast.NewSQLIdent("id"),
+							&sqlast.ColumnDef{
+								Name:     sqlast.NewIdent("id"),
 								DataType: &sqlast.Int{},
 								Constraints: []*sqlast.ColumnConstraint{
 									{
@@ -59,11 +59,11 @@ create table test2(id int primary key);`,
 			expect: &SchemaDiff{
 				Type: AddTable,
 				Spec: &AddTableSpec{
-					SQL: &sqlast.SQLCreateTable{
+					SQL: &sqlast.CreateTableStmt{
 						Name: sqlast.NewSQLObjectName("test2"),
 						Elements: []sqlast.TableElement{
-							&sqlast.SQLColumnDef{
-								Name:     sqlast.NewSQLIdent("id"),
+							&sqlast.ColumnDef{
+								Name:     sqlast.NewIdent("id"),
 								DataType: &sqlast.Int{},
 								Constraints: []*sqlast.ColumnConstraint{
 									{
@@ -85,8 +85,8 @@ create table test2(id int primary key);`,
 				Type: AddColumn,
 				Spec: &AddColumnSpec{
 					TableName: "test1",
-					ColumnDef: &sqlast.SQLColumnDef{
-						Name:     sqlast.NewSQLIdent("name"),
+					ColumnDef: &sqlast.ColumnDef{
+						Name:     sqlast.NewIdent("name"),
 						DataType: &sqlast.VarcharType{},
 						Constraints: []*sqlast.ColumnConstraint{
 							{
@@ -118,8 +118,8 @@ create table test2(id int primary key);`,
 				Type: AddColumn,
 				Spec: &AddColumnSpec{
 					TableName: "test1",
-					ColumnDef: &sqlast.SQLColumnDef{
-						Name:     sqlast.NewSQLIdent("name"),
+					ColumnDef: &sqlast.ColumnDef{
+						Name:     sqlast.NewIdent("name"),
 						DataType: &sqlast.VarcharType{},
 						Constraints: []*sqlast.ColumnConstraint{
 							{
@@ -139,10 +139,10 @@ create table test2(id int primary key);`,
 					Type:       EditType,
 					TableName:  "test1",
 					ColumnName: "name",
-					SQL: &sqlast.SQLAlterTable{
+					SQL: &sqlast.AlterTableStmt{
 						TableName: sqlast.NewSQLObjectName("test1"),
 						Action: &sqlast.AlterColumnTableAction{
-							ColumnName: sqlast.NewSQLIdent("name"),
+							ColumnName: sqlast.NewIdent("name"),
 							Action: &sqlast.PGAlterDataTypeColumnAction{
 								DataType: &sqlast.Int{},
 							},
@@ -156,10 +156,10 @@ create table test2(id int primary key);`,
 					Type:       EditType,
 					TableName:  "test1",
 					ColumnName: "name",
-					SQL: &sqlast.SQLAlterTable{
+					SQL: &sqlast.AlterTableStmt{
 						TableName: sqlast.NewSQLObjectName("test1"),
 						Action: &sqlast.AlterColumnTableAction{
-							ColumnName: sqlast.NewSQLIdent("name"),
+							ColumnName: sqlast.NewIdent("name"),
 							Action: &sqlast.PGAlterDataTypeColumnAction{
 								DataType: &sqlast.VarcharType{},
 							},
@@ -177,10 +177,10 @@ create table test2(id int primary key);`,
 					Type:       DropNotNull,
 					TableName:  "test1",
 					ColumnName: "name",
-					SQL: &sqlast.SQLAlterTable{
+					SQL: &sqlast.AlterTableStmt{
 						TableName: sqlast.NewSQLObjectName("test1"),
 						Action: &sqlast.AlterColumnTableAction{
-							ColumnName: sqlast.NewSQLIdent("name"),
+							ColumnName: sqlast.NewIdent("name"),
 							Action:     &sqlast.PGDropNotNullColumnAction{},
 						},
 					},
@@ -192,10 +192,10 @@ create table test2(id int primary key);`,
 					Type:       SetNotNull,
 					TableName:  "test1",
 					ColumnName: "name",
-					SQL: &sqlast.SQLAlterTable{
+					SQL: &sqlast.AlterTableStmt{
 						TableName: sqlast.NewSQLObjectName("test1"),
 						Action: &sqlast.AlterColumnTableAction{
-							ColumnName: sqlast.NewSQLIdent("name"),
+							ColumnName: sqlast.NewIdent("name"),
 							Action:     &sqlast.PGSetNotNullColumnAction{},
 						},
 					},
@@ -211,10 +211,10 @@ create table test2(id int primary key);`,
 					Type:       SetNotNull,
 					TableName:  "test1",
 					ColumnName: "name",
-					SQL: &sqlast.SQLAlterTable{
+					SQL: &sqlast.AlterTableStmt{
 						TableName: sqlast.NewSQLObjectName("test1"),
 						Action: &sqlast.AlterColumnTableAction{
-							ColumnName: sqlast.NewSQLIdent("name"),
+							ColumnName: sqlast.NewIdent("name"),
 							Action:     &sqlast.PGSetNotNullColumnAction{},
 						},
 					},
@@ -226,10 +226,10 @@ create table test2(id int primary key);`,
 					Type:       DropNotNull,
 					TableName:  "test1",
 					ColumnName: "name",
-					SQL: &sqlast.SQLAlterTable{
+					SQL: &sqlast.AlterTableStmt{
 						TableName: sqlast.NewSQLObjectName("test1"),
 						Action: &sqlast.AlterColumnTableAction{
-							ColumnName: sqlast.NewSQLIdent("name"),
+							ColumnName: sqlast.NewIdent("name"),
 							Action:     &sqlast.PGDropNotNullColumnAction{},
 						},
 					},
@@ -245,10 +245,10 @@ create table test2(id int primary key);`,
 					Type:       SetDefault,
 					TableName:  "test1",
 					ColumnName: "name",
-					SQL: &sqlast.SQLAlterTable{
+					SQL: &sqlast.AlterTableStmt{
 						TableName: sqlast.NewSQLObjectName("test1"),
 						Action: &sqlast.AlterColumnTableAction{
-							ColumnName: sqlast.NewSQLIdent("name"),
+							ColumnName: sqlast.NewIdent("name"),
 							Action: &sqlast.SetDefaultColumnAction{
 								Default: sqlast.NewLongValue(1),
 							},
@@ -262,10 +262,10 @@ create table test2(id int primary key);`,
 					Type:       DropDefault,
 					TableName:  "test1",
 					ColumnName: "name",
-					SQL: &sqlast.SQLAlterTable{
+					SQL: &sqlast.AlterTableStmt{
 						TableName: sqlast.NewSQLObjectName("test1"),
 						Action: &sqlast.AlterColumnTableAction{
-							ColumnName: sqlast.NewSQLIdent("name"),
+							ColumnName: sqlast.NewIdent("name"),
 							Action:     &sqlast.DropDefaultColumnAction{},
 						},
 					},
@@ -281,10 +281,10 @@ create table test2(id int primary key);`,
 					Type:       DropDefault,
 					TableName:  "test1",
 					ColumnName: "id",
-					SQL: &sqlast.SQLAlterTable{
+					SQL: &sqlast.AlterTableStmt{
 						TableName: sqlast.NewSQLObjectName("test1"),
 						Action: &sqlast.AlterColumnTableAction{
-							ColumnName: sqlast.NewSQLIdent("id"),
+							ColumnName: sqlast.NewIdent("id"),
 							Action:     &sqlast.DropDefaultColumnAction{},
 						},
 					},
@@ -296,10 +296,10 @@ create table test2(id int primary key);`,
 					Type:       SetDefault,
 					TableName:  "test1",
 					ColumnName: "id",
-					SQL: &sqlast.SQLAlterTable{
+					SQL: &sqlast.AlterTableStmt{
 						TableName: sqlast.NewSQLObjectName("test1"),
 						Action: &sqlast.AlterColumnTableAction{
-							ColumnName: sqlast.NewSQLIdent("id"),
+							ColumnName: sqlast.NewIdent("id"),
 							Action: &sqlast.SetDefaultColumnAction{
 								Default: sqlast.NewLongValue(1),
 							},

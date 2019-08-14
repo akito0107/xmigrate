@@ -33,7 +33,7 @@ func CalcGraph(diffs []*SchemaDiff) *toposort.Graph {
 		case *AddTableSpec:
 			for _, e := range spec.SQL.Elements {
 				switch el := e.(type) {
-				case *sqlast.SQLColumnDef:
+				case *sqlast.ColumnDef:
 					for _, c := range el.Constraints {
 						ref, ok := c.Spec.(*sqlast.ReferencesColumnSpec)
 						if !ok {

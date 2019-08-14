@@ -24,8 +24,8 @@ const (
 )
 
 type TargetTable struct {
-	TableDef []*sqlast.SQLCreateTable
-	IndexDef []*sqlast.SQLCreateIndex
+	TableDef []*sqlast.CreateTableStmt
+	IndexDef []*sqlast.CreateIndexStmt
 }
 
 type SchemaDiff struct {
@@ -36,14 +36,14 @@ type SchemaDiff struct {
 func Diff(targ *TargetTable, currentTable []*TableDef) ([]*SchemaDiff, error) {
 	var diffs []*SchemaDiff
 
-	targetState := make(map[string]*sqlast.SQLCreateTable)
+	targetState := make(map[string]*sqlast.CreateTableStmt)
 	targetIndexes := partitionIndexByName(targ.IndexDef)
 
 	for _, t := range targ.TableDef {
 		targetState[strings.ToLower(t.Name.ToSQLString())] = t
 	}
 
-	currentIndexes := make(map[string]*sqlast.SQLCreateIndex)
+	currentIndexes := make(map[string]*sqlast.CreateIndexStmt)
 	currentState := make(map[string]*TableDef)
 	for _, c := range currentTable {
 		currentState[c.Name] = c
@@ -112,18 +112,18 @@ func Diff(targ *TargetTable, currentTable []*TableDef) ([]*SchemaDiff, error) {
 	return diffs, nil
 }
 
-func DSLToDiff(stmts []sqlast.SQLStmt) ([]*SchemaDiff, error) {
+func DSLToDiff(stmts []sqlast.Stmt) ([]*SchemaDiff, error) {
 	var diff []*SchemaDiff
 	for _, stmt := range stmts {
 		switch st := stmt.(type) {
-		case *sqlast.SQLCreateTable:
+		case *sqlast.CreateTableStmt:
 			diff = append(diff, &SchemaDiff{
 				Type: AddTable,
 				Spec: &AddTableSpec{
 					SQL: st,
 				},
 			})
-		case *sqlast.SQLDropTable:
+		case *sqlast.DropTableStmt:
 			diff = append(diff, &SchemaDiff{
 				Type: DropTable,
 				Spec: &DropTableSpec{
@@ -131,7 +131,7 @@ func DSLToDiff(stmts []sqlast.SQLStmt) ([]*SchemaDiff, error) {
 					TableName: st.TableNames[0].ToSQLString(),
 				},
 			})
-		case *sqlast.SQLAlterTable:
+		case *sqlast.AlterTableStmt:
 			switch al := (st.Action).(type) {
 			case *sqlast.AddColumnTableAction:
 				diff = append(diff, &SchemaDiff{
@@ -230,8 +230,8 @@ func DSLToDiff(stmts []sqlast.SQLStmt) ([]*SchemaDiff, error) {
 	return diff, nil
 }
 
-func partitionIndexByName(indexes []*sqlast.SQLCreateIndex) map[string]*sqlast.SQLCreateIndex {
-	p := make(map[string]*sqlast.SQLCreateIndex)
+func partitionIndexByName(indexes []*sqlast.CreateIndexStmt) map[string]*sqlast.CreateIndexStmt {
+	p := make(map[string]*sqlast.CreateIndexStmt)
 
 	for _, i := range indexes {
 		p[i.IndexName.ToSQLString()] = i
@@ -245,14 +245,14 @@ type DiffSpec interface {
 }
 
 type AddTableSpec struct {
-	SQL *sqlast.SQLCreateTable
+	SQL *sqlast.CreateTableStmt
 }
 
 func (a *AddTableSpec) ToSQLString() string {
 	return a.SQL.ToSQLString()
 }
 
-func createAddTableSpec(targ *sqlast.SQLCreateTable) *AddTableSpec {
+func createAddTableSpec(targ *sqlast.CreateTableStmt) *AddTableSpec {
 	return &AddTableSpec{SQL: targ}
 }
 
@@ -261,8 +261,8 @@ type DropTableSpec struct {
 }
 
 func (d *DropTableSpec) ToSQLString() string {
-	sql := &sqlast.SQLDropTable{
-		TableNames: []*sqlast.SQLObjectName{sqlast.NewSQLObjectName(d.TableName)},
+	sql := &sqlast.DropTableStmt{
+		TableNames: []*sqlast.ObjectName{sqlast.NewSQLObjectName(d.TableName)},
 		IfExists:   true,
 	}
 
@@ -275,11 +275,11 @@ func createDropTableSpec(currentTable *TableDef) *DropTableSpec {
 
 type AddColumnSpec struct {
 	TableName string
-	ColumnDef *sqlast.SQLColumnDef
+	ColumnDef *sqlast.ColumnDef
 }
 
 func (a *AddColumnSpec) ToSQLString() string {
-	sql := sqlast.SQLAlterTable{
+	sql := sqlast.AlterTableStmt{
 		TableName: sqlast.NewSQLObjectName(a.TableName),
 		Action: &sqlast.AddColumnTableAction{
 			Column: a.ColumnDef,
@@ -295,10 +295,10 @@ type DropColumnSpec struct {
 }
 
 func (d *DropColumnSpec) ToSQLString() string {
-	sql := sqlast.SQLAlterTable{
+	sql := sqlast.AlterTableStmt{
 		TableName: sqlast.NewSQLObjectName(d.TableName),
 		Action: &sqlast.RemoveColumnTableAction{
-			Name: sqlast.NewSQLIdent(d.ColumnName),
+			Name: sqlast.NewIdent(d.ColumnName),
 		},
 	}
 
@@ -311,7 +311,7 @@ type AddTableConstraintSpec struct {
 }
 
 func (a *AddTableConstraintSpec) ToSQLString() string {
-	sql := &sqlast.SQLAlterTable{
+	sql := &sqlast.AlterTableStmt{
 		TableName: sqlast.NewSQLObjectName(a.TableName),
 		Action: &sqlast.AddConstraintTableAction{
 			Constraint: a.ConstraintDef,
@@ -327,10 +327,10 @@ type DropTableConstraintSpec struct {
 }
 
 func (d *DropTableConstraintSpec) ToSQLString() string {
-	sql := &sqlast.SQLAlterTable{
+	sql := &sqlast.AlterTableStmt{
 		TableName: sqlast.NewSQLObjectName(d.TableName),
 		Action: &sqlast.DropConstraintTableAction{
-			Name: sqlast.NewSQLIdent(d.ConstraintsName),
+			Name: sqlast.NewIdent(d.ConstraintsName),
 		},
 	}
 
@@ -338,7 +338,7 @@ func (d *DropTableConstraintSpec) ToSQLString() string {
 }
 
 type AddIndexSpec struct {
-	Def *sqlast.SQLCreateIndex
+	Def *sqlast.CreateIndexStmt
 }
 
 func (a *AddIndexSpec) ToSQLString() string {
@@ -350,13 +350,13 @@ type DropIndexSpec struct {
 }
 
 func (d *DropIndexSpec) ToSQLString() string {
-	sql := &sqlast.SQLDropIndex{
-		IndexNames: []*sqlast.SQLIdent{sqlast.NewSQLIdent(d.IndexName)},
+	sql := &sqlast.DropIndexStmt{
+		IndexNames: []*sqlast.Ident{sqlast.NewIdent(d.IndexName)},
 	}
 	return sql.ToSQLString()
 }
 
-func computeTableDiff(targ *sqlast.SQLCreateTable, currentTable *TableDef) ([]*SchemaDiff, error) {
+func computeTableDiff(targ *sqlast.CreateTableStmt, currentTable *TableDef) ([]*SchemaDiff, error) {
 	var diffs []*SchemaDiff
 	var targNames []string
 
@@ -364,7 +364,7 @@ func computeTableDiff(targ *sqlast.SQLCreateTable, currentTable *TableDef) ([]*S
 
 	for _, e := range targ.Elements {
 		switch tp := e.(type) {
-		case *sqlast.SQLColumnDef:
+		case *sqlast.ColumnDef:
 			cmap[strings.ToLower(tp.Name.ToSQLString())] = struct{}{}
 			targNames = append(targNames, tp.Name.ToSQLString())
 
@@ -442,7 +442,7 @@ type EditColumnSpec struct {
 	Type       EditColumnType
 	TableName  string
 	ColumnName string
-	SQL        *sqlast.SQLAlterTable
+	SQL        *sqlast.AlterTableStmt
 }
 
 func (e *EditColumnSpec) ToSQLString() string {
@@ -459,7 +459,7 @@ type EditColumnAction interface {
 // constraints change
 //   unique
 //   check
-func computeColumnDiff(tableName string, targ *sqlast.SQLColumnDef, current *sqlast.SQLColumnDef) (bool, []*SchemaDiff, error) {
+func computeColumnDiff(tableName string, targ *sqlast.ColumnDef, current *sqlast.ColumnDef) (bool, []*SchemaDiff, error) {
 	var diffs []*SchemaDiff
 
 	tgTp, tok := targ.DataType.(*sqlast.Custom)
@@ -471,7 +471,7 @@ func computeColumnDiff(tableName string, targ *sqlast.SQLColumnDef, current *sql
 		}
 	}
 	if !reflect.DeepEqual(targ.DataType, current.DataType) {
-		sql := &sqlast.SQLAlterTable{
+		sql := &sqlast.AlterTableStmt{
 			TableName: sqlast.NewSQLObjectName(tableName),
 			Action: &sqlast.AlterColumnTableAction{
 				ColumnName: targ.Name,
@@ -496,7 +496,7 @@ func computeColumnDiff(tableName string, targ *sqlast.SQLColumnDef, current *sql
 	cnn := hasNotNullConstraint(current)
 
 	if tnn && !cnn {
-		sql := &sqlast.SQLAlterTable{
+		sql := &sqlast.AlterTableStmt{
 			TableName: sqlast.NewSQLObjectName(tableName),
 			Action: &sqlast.AlterColumnTableAction{
 				ColumnName: targ.Name,
@@ -514,7 +514,7 @@ func computeColumnDiff(tableName string, targ *sqlast.SQLColumnDef, current *sql
 			},
 		})
 	} else if !tnn && cnn {
-		sql := &sqlast.SQLAlterTable{
+		sql := &sqlast.AlterTableStmt{
 			TableName: sqlast.NewSQLObjectName(tableName),
 			Action: &sqlast.AlterColumnTableAction{
 				ColumnName: targ.Name,
@@ -537,7 +537,7 @@ func computeColumnDiff(tableName string, targ *sqlast.SQLColumnDef, current *sql
 	cdef := hasDefaultClause(current)
 
 	if tdef && !cdef {
-		sql := &sqlast.SQLAlterTable{
+		sql := &sqlast.AlterTableStmt{
 			TableName: sqlast.NewSQLObjectName(tableName),
 			Action: &sqlast.AlterColumnTableAction{
 				ColumnName: targ.Name,
@@ -556,7 +556,7 @@ func computeColumnDiff(tableName string, targ *sqlast.SQLColumnDef, current *sql
 			},
 		})
 	} else if !tdef && cdef {
-		sql := &sqlast.SQLAlterTable{
+		sql := &sqlast.AlterTableStmt{
 			TableName: sqlast.NewSQLObjectName(tableName),
 			Action: &sqlast.AlterColumnTableAction{
 				ColumnName: targ.Name,
@@ -581,7 +581,7 @@ func computeColumnDiff(tableName string, targ *sqlast.SQLColumnDef, current *sql
 	return false, nil, nil
 }
 
-func hasNotNullConstraint(def *sqlast.SQLColumnDef) bool {
+func hasNotNullConstraint(def *sqlast.ColumnDef) bool {
 	for _, c := range def.Constraints {
 		if _, ok := c.Spec.(*sqlast.NotNullColumnSpec); ok {
 			return true
@@ -593,11 +593,11 @@ func hasNotNullConstraint(def *sqlast.SQLColumnDef) bool {
 	return false
 }
 
-func hasDefaultClause(def *sqlast.SQLColumnDef) bool {
+func hasDefaultClause(def *sqlast.ColumnDef) bool {
 	return def.Default != nil
 }
 
-func computeIndexDiff(current, target map[string]*sqlast.SQLCreateIndex) []*SchemaDiff {
+func computeIndexDiff(current, target map[string]*sqlast.CreateIndexStmt) []*SchemaDiff {
 	var diffs []*SchemaDiff
 	for n, i := range current {
 		_, ok := target[n]

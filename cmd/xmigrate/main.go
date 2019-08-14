@@ -77,10 +77,10 @@ func getDiff(ctx context.Context, schemapath string, conf *xmigrate.PGConf) ([]*
 		return nil, nil, err
 	}
 
-	var createTables []*sqlast.SQLCreateTable
+	var createTables []*sqlast.CreateTableStmt
 
 	for _, s := range sqls {
-		c, ok := s.(*sqlast.SQLCreateTable)
+		c, ok := s.(*sqlast.CreateTableStmt)
 		if !ok {
 			continue
 		}

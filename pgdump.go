@@ -33,9 +33,9 @@ func (p *PGConf) Src() string {
 
 type TableDef struct {
 	Name       string
-	Columns    map[string]*sqlast.SQLColumnDef
+	Columns    map[string]*sqlast.ColumnDef
 	Constrains []*sqlast.TableConstraint
-	Indexes    map[string]*sqlast.SQLCreateIndex
+	Indexes    map[string]*sqlast.CreateIndexStmt
 }
 
 type PGDump struct {
@@ -119,7 +119,7 @@ func (p *PGDump) Dump(ctx context.Context) ([]*TableDef, error) {
 				}
 
 				spec.TableName = sqlast.NewSQLObjectName(targinfo[0].TableName)
-				spec.Columns = []*sqlast.SQLIdent{sqlast.NewSQLIdent(targinfo[0].ColumnName)}
+				spec.Columns = []*sqlast.Ident{sqlast.NewIdent(targinfo[0].ColumnName)}
 			}
 		}
 
@@ -132,11 +132,11 @@ func (p *PGDump) Dump(ctx context.Context) ([]*TableDef, error) {
 			if !ok {
 				return nil, errors.Errorf("key %s is not found", c.Name.ToSQLString())
 			}
-			spec.KeyExpr.TableName = sqlast.NewSQLIdentifier(sqlast.NewSQLIdent(targinfo[0].TableName))
-			var columns []*sqlast.SQLIdent
+			spec.KeyExpr.TableName = sqlast.NewIdent(targinfo[0].TableName)
+			var columns []*sqlast.Ident
 
 			for _, column := range targinfo {
-				columns = append(columns, sqlast.NewSQLIdent(column.ColumnName))
+				columns = append(columns, sqlast.NewIdent(column.ColumnName))
 			}
 
 			spec.KeyExpr.Columns = columns
@@ -152,7 +152,7 @@ func (p *PGDump) Dump(ctx context.Context) ([]*TableDef, error) {
 	return tables, nil
 }
 
-func fixSerial(def *sqlast.SQLColumnDef) (*sqlast.Custom, bool) {
+func fixSerial(def *sqlast.ColumnDef) (*sqlast.Custom, bool) {
 	switch def.DataType.(type) {
 	case *sqlast.Int:
 		if def.Default != nil && strings.HasPrefix(def.Default.ToSQLString(), "nextval") {
@@ -249,13 +249,13 @@ type pgInformationSchemaColumns struct {
 	IsUpdatable            string         `db:"is_updatable"`
 }
 
-func (p *PGDump) getColumnDefinition(ctx context.Context, schemaName string) (map[string]*sqlast.SQLColumnDef, error) {
+func (p *PGDump) getColumnDefinition(ctx context.Context, schemaName string) (map[string]*sqlast.ColumnDef, error) {
 	var columns []*pgInformationSchemaColumns
 	if err := p.db.SelectContext(ctx, &columns, "select * from information_schema.columns where table_schema = 'public' and table_name = $1", schemaName); err != nil {
 		return nil, errors.Errorf("select columns with tableName %s failed: %w", schemaName, err)
 	}
 
-	columndefs := make(map[string]*sqlast.SQLColumnDef)
+	columndefs := make(map[string]*sqlast.ColumnDef)
 	for _, c := range columns {
 		p := getParser(c.DataType)
 		tp, err := p.ParseDataType()
@@ -264,7 +264,7 @@ func (p *PGDump) getColumnDefinition(ctx context.Context, schemaName string) (ma
 		}
 		tp = parseTypeOption(tp, c)
 
-		var def sqlast.ASTNode
+		var def sqlast.Node
 		if c.ColumnDefault.Valid {
 			p = getParser(c.ColumnDefault.String)
 			d, err := p.ParseExpr()
@@ -282,10 +282,10 @@ func (p *PGDump) getColumnDefinition(ctx context.Context, schemaName string) (ma
 			})
 		}
 
-		columndefs[c.ColumnName] = &sqlast.SQLColumnDef{
+		columndefs[c.ColumnName] = &sqlast.ColumnDef{
 			DataType:    tp,
 			Default:     def,
-			Name:        sqlast.NewSQLIdent(c.ColumnName),
+			Name:        sqlast.NewIdent(c.ColumnName),
 			Constraints: constrains,
 		}
 	}
@@ -293,7 +293,7 @@ func (p *PGDump) getColumnDefinition(ctx context.Context, schemaName string) (ma
 	return columndefs, nil
 }
 
-func parseTypeOption(tp sqlast.SQLType, info *pgInformationSchemaColumns) sqlast.SQLType {
+func parseTypeOption(tp sqlast.Type, info *pgInformationSchemaColumns) sqlast.Type {
 	switch tp.(type) {
 	case *sqlast.VarcharType:
 		if info.CharacterMaximumLength.Valid {
@@ -401,17 +401,17 @@ func (p *PGDump) getTableConstrains(ctx context.Context, tableName string, keyma
 		switch c.ConstraintType {
 		case "FOREIGN KEY":
 			columnConstraintmap[c.ColumnName] = append(columnConstraintmap[c.ColumnName], &sqlast.ColumnConstraint{
-				Name: sqlast.NewSQLIdentifier(sqlast.NewSQLIdent(c.ConstraintName)),
+				Name: sqlast.NewIdent(c.ConstraintName),
 				Spec: &sqlast.ReferencesColumnSpec{},
 			})
 		case "UNIQUE":
 			columnConstraintmap[c.ColumnName] = append(columnConstraintmap[c.ColumnName], &sqlast.ColumnConstraint{
-				Name: sqlast.NewSQLIdentifier(sqlast.NewSQLIdent(c.ConstraintName)),
+				Name: sqlast.NewIdent(c.ConstraintName),
 				Spec: &sqlast.UniqueColumnSpec{},
 			})
 		case "PRIMARY KEY":
 			columnConstraintmap[c.ColumnName] = append(columnConstraintmap[c.ColumnName], &sqlast.ColumnConstraint{
-				Name: sqlast.NewSQLIdentifier(sqlast.NewSQLIdent(c.ConstraintName)),
+				Name: sqlast.NewIdent(c.ConstraintName),
 				Spec: &sqlast.UniqueColumnSpec{
 					IsPrimaryKey: true,
 				},
@@ -426,9 +426,9 @@ func (p *PGDump) getTableConstrains(ctx context.Context, tableName string, keyma
 	for name, c := range tableConstraintsmap {
 
 		var spec sqlast.TableConstraintSpec
-		var columns []*sqlast.SQLIdent
+		var columns []*sqlast.Ident
 		for _, column := range c {
-			columns = append(columns, sqlast.NewSQLIdent(column.ColumnName))
+			columns = append(columns, sqlast.NewIdent(column.ColumnName))
 		}
 		switch c[0].ConstraintType {
 		case "FOREIGN KEY":
@@ -449,7 +449,7 @@ func (p *PGDump) getTableConstrains(ctx context.Context, tableName string, keyma
 			return nil, nil, errors.Errorf("currently unsupported table constraint %s", name)
 		}
 		tableConstraints = append(tableConstraints, &sqlast.TableConstraint{
-			Name: sqlast.NewSQLIdentifier(sqlast.NewSQLIdent(name)),
+			Name: sqlast.NewIdent(name),
 			Spec: spec,
 		})
 	}
@@ -465,13 +465,13 @@ type pgIndexInfo struct {
 	TableSpace sql.NullString `db:"tablespace"`
 }
 
-func (p *PGDump) getIndexes(ctx context.Context, tableDef *TableDef) (map[string]*sqlast.SQLCreateIndex, error) {
+func (p *PGDump) getIndexes(ctx context.Context, tableDef *TableDef) (map[string]*sqlast.CreateIndexStmt, error) {
 	var indexes []pgIndexInfo
 
 	if err := p.db.SelectContext(ctx, &indexes, "SELECT * from pg_indexes where tablename = $1", tableDef.Name); err != nil {
 		return nil, errors.Errorf("selectContext failed with tableName %s: %w", tableDef.Name, err)
 	}
-	indexMap := make(map[string]*sqlast.SQLCreateIndex)
+	indexMap := make(map[string]*sqlast.CreateIndexStmt)
 
 	for _, i := range indexes {
 		parser := getParser(i.IndexDef)
@@ -480,7 +480,7 @@ func (p *PGDump) getIndexes(ctx context.Context, tableDef *TableDef) (map[string
 			return nil, errors.Errorf("def: %s parse failed: %w", i.IndexDef, err)
 		}
 
-		indexsql, ok := indexdef.(*sqlast.SQLCreateIndex)
+		indexsql, ok := indexdef.(*sqlast.CreateIndexStmt)
 		if !ok {
 			return nil, errors.Errorf("def: %s is not a create index statement", i.IndexDef)
 		}
@@ -534,7 +534,7 @@ func getParser(src string) *xsqlparser.Parser {
 	return parser
 }
 
-func sameColumnNames(a []*sqlast.SQLIdent, b []*sqlast.SQLIdent) bool {
+func sameColumnNames(a []*sqlast.Ident, b []*sqlast.Ident) bool {
 	if len(a) != len(b) {
 		return false
 	}
