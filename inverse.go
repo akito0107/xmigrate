@@ -47,7 +47,7 @@ func Inverse(diff *SchemaDiff, currentTable []*TableDef) (*SchemaDiff, error) {
 		return &SchemaDiff{
 			Type: AddTable,
 			Spec: &AddTableSpec{
-				SQL: &sqlast.SQLCreateTable{
+				SQL: &sqlast.CreateTableStmt{
 					Name:     sqlast.NewSQLObjectName(spec.TableName),
 					Elements: columndef,
 				},
@@ -63,10 +63,10 @@ func Inverse(diff *SchemaDiff, currentTable []*TableDef) (*SchemaDiff, error) {
 					Type:       DropNotNull,
 					TableName:  spec.TableName,
 					ColumnName: spec.ColumnName,
-					SQL: &sqlast.SQLAlterTable{
+					SQL: &sqlast.AlterTableStmt{
 						TableName: sqlast.NewSQLObjectName(spec.SQL.TableName.ToSQLString()),
 						Action: &sqlast.AlterColumnTableAction{
-							ColumnName: sqlast.NewSQLIdent(spec.ColumnName),
+							ColumnName: sqlast.NewIdent(spec.ColumnName),
 							Action:     &sqlast.PGDropNotNullColumnAction{},
 						},
 					},
@@ -79,10 +79,10 @@ func Inverse(diff *SchemaDiff, currentTable []*TableDef) (*SchemaDiff, error) {
 					Type:       SetNotNull,
 					TableName:  spec.TableName,
 					ColumnName: spec.ColumnName,
-					SQL: &sqlast.SQLAlterTable{
+					SQL: &sqlast.AlterTableStmt{
 						TableName: sqlast.NewSQLObjectName(spec.SQL.TableName.ToSQLString()),
 						Action: &sqlast.AlterColumnTableAction{
-							ColumnName: sqlast.NewSQLIdent(spec.ColumnName),
+							ColumnName: sqlast.NewIdent(spec.ColumnName),
 							Action:     &sqlast.PGSetNotNullColumnAction{},
 						},
 					},
@@ -98,10 +98,10 @@ func Inverse(diff *SchemaDiff, currentTable []*TableDef) (*SchemaDiff, error) {
 					Type:       SetDefault,
 					TableName:  spec.TableName,
 					ColumnName: spec.ColumnName,
-					SQL: &sqlast.SQLAlterTable{
+					SQL: &sqlast.AlterTableStmt{
 						TableName: spec.SQL.TableName,
 						Action: &sqlast.AlterColumnTableAction{
-							ColumnName: sqlast.NewSQLIdent(spec.ColumnName),
+							ColumnName: sqlast.NewIdent(spec.ColumnName),
 							Action: &sqlast.SetDefaultColumnAction{
 								Default: col.Default,
 							},
@@ -116,10 +116,10 @@ func Inverse(diff *SchemaDiff, currentTable []*TableDef) (*SchemaDiff, error) {
 					Type:       DropDefault,
 					TableName:  spec.TableName,
 					ColumnName: spec.ColumnName,
-					SQL: &sqlast.SQLAlterTable{
+					SQL: &sqlast.AlterTableStmt{
 						TableName: spec.SQL.TableName,
 						Action: &sqlast.AlterColumnTableAction{
-							ColumnName: sqlast.NewSQLIdent(spec.ColumnName),
+							ColumnName: sqlast.NewIdent(spec.ColumnName),
 							Action:     &sqlast.DropDefaultColumnAction{},
 						},
 					},
@@ -134,10 +134,10 @@ func Inverse(diff *SchemaDiff, currentTable []*TableDef) (*SchemaDiff, error) {
 					Type:       EditType,
 					TableName:  spec.TableName,
 					ColumnName: spec.ColumnName,
-					SQL: &sqlast.SQLAlterTable{
+					SQL: &sqlast.AlterTableStmt{
 						TableName: sqlast.NewSQLObjectName(spec.SQL.TableName.ToSQLString()),
 						Action: &sqlast.AlterColumnTableAction{
-							ColumnName: sqlast.NewSQLIdent(spec.ColumnName),
+							ColumnName: sqlast.NewIdent(spec.ColumnName),
 							Action: &sqlast.PGAlterDataTypeColumnAction{
 								DataType: col.DataType,
 							},
@@ -163,20 +163,20 @@ func getTable(tableName string, ts []*TableDef) *TableDef {
 	return nil
 }
 
-func refineColumn(org *sqlast.SQLColumnDef) *sqlast.SQLColumnDef {
+func refineColumn(org *sqlast.ColumnDef) *sqlast.ColumnDef {
 	// convert into serial
 	_, ok := org.DataType.(*sqlast.Int)
 	if !ok {
 		return org
 	}
 
-	fn, ok := org.Default.(*sqlast.SQLFunction)
+	fn, ok := org.Default.(*sqlast.Function)
 	if !ok {
 		return org
 	}
 
 	if strings.HasPrefix(fn.Name.ToSQLString(), "nextval") {
-		return &sqlast.SQLColumnDef{
+		return &sqlast.ColumnDef{
 			Name:        org.Name,
 			DataType:    &sqlast.Custom{Ty: sqlast.NewSQLObjectName("SERIAL")},
 			Constraints: org.Constraints,

@@ -30,15 +30,15 @@ func GetDiff(ctx context.Context, schemapath string, url *dburl.URL) ([]*xmigrat
 		return nil, nil, err
 	}
 
-	var createTables []*sqlast.SQLCreateTable
-	var createIndexes []*sqlast.SQLCreateIndex
+	var createTables []*sqlast.CreateTableStmt
+	var createIndexes []*sqlast.CreateIndexStmt
 
 	for _, s := range sqls {
 
 		switch sql := s.(type) {
-		case *sqlast.SQLCreateTable:
+		case *sqlast.CreateTableStmt:
 			createTables = append(createTables, sql)
-		case *sqlast.SQLCreateIndex:
+		case *sqlast.CreateIndexStmt:
 			createIndexes = append(createIndexes, sql)
 		default:
 			return nil, nil, errors.Errorf("unsupported sql: %s", s.ToSQLString())
